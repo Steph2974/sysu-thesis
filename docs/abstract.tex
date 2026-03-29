@@ -1,21 +1,20 @@
 % !TeX root = ../main.tex
 
 \sysusetup{
-  keywords  = {本科毕业论文，\LaTeX\ 模板，中山大学},
-  keywords* = {undergraduate thesis, \LaTeX\ template, Sun Yat-Sen University},
-  keywords** = {Mémoire de bachelor, L'Abstract, Mots-clés},
+  keywords  = {兴趣点推荐；生成式推荐；大语言模型；向量量化；时空解耦},
+  % keywords* = {undergraduate thesis, \LaTeX\ template, Sun Yat-Sen University},
+  % keywords** = {Mémoire de bachelor, L'Abstract, Mots-clés},
 }
 
 \begin{abstract}
-  摘要应概括论文的主要信息，应具有独立性和自含性，即不阅读论文的全文，就能获得必要的信息。摘要内容一般应包括研究目的、内容、方法、成果和结论，要突出论文的创造性成果或新见解，不要与绪论相混淆。语言力求精练、准确，以300-500字为宜。关键词是供检索用的主题词条，应体现论文特色，具有语义性，在论文中有明确的出处，并应尽量采用《汉语主题词表》或各专业主题词表提供的规范词。关键词与摘要应在同一页，在摘要的下方另起一行注明，一般列3-5个，按词条的外延层次排列（外延大的排在前面）。
+  下一个兴趣点（Next POI）推荐在个性化出行和位置服务中具有重要价值。近年来，生成式推荐系统利用大语言模型（LLM）的强大推理能力，为该领域带来了新的范式。现有方法通常将 POI 的地理位置、类别属性和协同过滤信号拼接后，送入残差向量量化（RQ-VAE）模型生成离散的语义 ID（Semantic ID）。然而，物理空间的绝对刚性与语义偏好的柔性存在本质差异，强行融合会导致严重的“码本碰撞（Codebook Collision）”现象，进而引发大语言模型在生成推荐时的“空间跳跃”幻觉。
 
+针对上述问题，本文提出了一种基于解耦式时空双轨制 ID（Decoupled Spatio-Semantic Hybrid ID）的生成式推荐算法。首先，在空间维度上，引入确定性的地理空间散列算法（Geohash）为 POI 构建绝对物理前缀，从根源上消除物理空间的编码坍塌；其次，在语义维度上，剥离位置信息，仅利用轻量化的 RQ-VAE 对 POI 的类别与历史协同信号进行特征压缩，生成表征用户偏好的柔性语义后缀；最后，将双轨制 ID 组织为时序指令（Prompt），利用 LoRA 技术对 LLaMA-3-8B 大语言模型进行高效指令微调。
+
+本文在真实的 Foursquare-NYC 签到数据集上进行了充分的实验与系统调优。实验结果表明，相比于基线模型 GNPR-SID，本文提出的双轨制 ID 生成策略不仅从根本上缓解了码本冲突问题，更在最终的推荐准确率（Acc@1）上取得了显著突破（达到了 36.42\%），优于现有的生成式 POI 推荐方法。本研究证明了在多模态生成式推荐中，时空特征解耦对提升 LLM 空间感知能力与推荐精准度的重要性。
 \end{abstract}
 
-\begin{abstract*}
-  The content of the English abstract is the same as the Chinese abstract, 250-400 content words are appropriate. Start another line below the abstract to indicate English keywords (Keywords 3-5).
-\end{abstract*}
+% \begin{abstract*}
+%   The content of the English abstract is the same as the Chinese abstract, 250-400 content words are appropriate. Start another line below the abstract to indicate English keywords (Keywords 3-5).
+% \end{abstract*}
 
-% 法语（第三种语言）摘要，本科不需要就全部注释掉即可，研究生请直接注释
-%\begin{abstract**}
-%  La longeur de l'abstract français doit faire référence à l'abstract chinois. Le titre de l'abstract français est «ABSTRACT». La première lettre de chaque mot-clé doit être en gros, et les mots-clés doivent être séparer par des virgules et espaces. Les mots-clés de chaque langue doivent être correspondants les uns aux autres.
-%\end{abstract**}

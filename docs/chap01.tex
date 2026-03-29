@@ -8,32 +8,37 @@
 \chapter{绪论}
 %定义，过去的研究和现在的研究，意义，与图像分割的不同,going deeper
 \label{cha:introduction}
-\section{选题背景与意义}
+\section{研究背景与意义}
 \label{sec:background}
-% What is the problem
-% why is it interesting and important
-% Why is it hards, why do naive approaches fails
-% why hasn't it been solved before
-% what are the key components of my approach and results, also include any specific limitations，do not repeat the abstract
-%contribution
-引言是论文正文的开端，应包括毕业论文选题的背景、目的和意义；对国内外研究现状和相关领域中已有的研究成果的简要评述；介绍本项研究工作研究设想、研究方法或实验设计、理论依据或实验基础；涉及范围和预期结果等。要求言简意赅，注意不要与摘要雷同或成为摘要的注解。
+随着移动互联网和带有位置感知功能的智能终端的普及，基于位置的社交网络（Location-Based Social Networks, LBSNs）积累了海量的用户时空轨迹数据。下一个兴趣点（Next POI）推荐旨在根据用户的历史签到序列，挖掘其行为偏好与时空转移规律，进而预测其未来最可能访问的地点。这不仅能够提升用户的个性化出行体验，也为智慧城市规划与商业选址提供了重要的数据支撑。
 
 \section{国内外研究现状和相关工作}
 \label{sec:related_work}
-对国内外研究现状和相关领域中已有的研究成果的简要评述。
-\section{本文的论文结构与章节安排}
+% 在生成式推荐中，大语言模型无法直接处理极其庞大且离散的实体（Item）库。如何为物品分配既包含协同知识又便于大模型理解的“语义 ID（Semantic ID）”，成为了当前学术界的核心挑战。
 
-\label{sec:arrangement}
+% 早期研究如 TIGER 采用了基于层次聚类树（Hierarchical K-Means）的 ID 构造方法，但其离线构造过程与下游大模型微调存在脱节。最新的研究（如 GNPR-SID 等模型）提出利用残差向量量化（Residual Vector Quantization, RQ-VAE）技术，将物品的多模态连续特征映射为离散的 Codebook 序列。然而，在 POI 推荐这一特殊的强空间约束任务中，现有方法通常将地理位置与协同信号混合量化，由于直通估计器（STE）的梯度稀疏性，极易导致“码本崩溃（Codebook Collapse）”，使得大量物理距离极远的店铺共享相似的 ID 序列，严重影响了生成式推荐的准确性。
+传统的下一个兴趣点（Next POI）推荐主要依赖马尔可夫链或深度神经网络（如 RNN、自注意力机制）来建模用户的时空转移规律\cite{kang2018sasrec, luo2021stan}。然而，这些判别式模型在处理长尾兴趣点和稀疏序列时往往面临泛化瓶颈。近年来，自然语言处理领域的突破促使推荐系统向生成式范式（Generative Recommendation）演进。该范式摒弃了“打分-排序”机制，将推荐转化为自回归的序列生成任务，并通过构建结构化的“语义 ID（Semantic ID）”使大语言模型（LLM）能够直接理解并处理庞大且离散的物品库\cite{rajput2023tiger}。这种方法利用了 LLM 强大的零样本泛化与逻辑推理能力，为 POI 推荐开辟了全新的解决思路。
 
-本文共分为六章，各章节内容安排如下：
+在生成式 POI 推荐的最新探索中，GNPR-SID \cite{wang2025gnpr} 作为标志性的基准模型，提出利用残差向量量化（RQ-VAE）将 POI 的地理位置、类别与协同信息压缩为离散 Token 序列，进而引导 LLM 进行端到端微调。尽管该方法显著提升了推荐准确率，但将刚性的物理坐标与柔性的偏好语义强行混合量化的策略，极易在直通估计器（STE）的优化过程中引发严重的“码本碰撞（Codebook Collision）”。正如最新前沿研究 \cite{vandenhirtz2026mscgrec} 所指出的，在多模态生成式推荐中强行融合异构特征往往会导致表征次优。因此，如何将地理空间编码与协同语义编码进行有效解耦，打破传统单列量化带来的大模型空间幻觉，已成为当前该领域亟待突破的关键瓶颈。
 
-第一章绪论。简单说明了本文章的选题背景与意义。
 
-第二章为本科生毕业论文写作与印制规范。本章节就学校的规范，逐点进行描述，并给出来了相关例子说明本模板在格式上的正确性。
+\section{本文主要工作与贡献}
+\label{sec:contribution}
+针对现有生成式 POI 推荐中语义 ID 构造存在的码本碰撞与空间幻觉难题，本文展开了深入的架构重构与算法优化，主要工作与创新贡献如下：
 
-第三章为本模板的使用说明。
+\begin{enumerate}
+    \item \textbf{揭示了全融合编码的空间坍塌问题：} 通过在真实数据集上的量化分布与簇大小评估，指出了现有 RQ-VAE 模型在混合异构特征（经纬度与协同信息）时，容易陷入局部最优，产生灾难性的簇拥挤现象。
+    \item \textbf{提出了解耦式时空双轨制 ID 生成机制：} 创新性地将刚性的地理绝对位置与柔性的用户偏好语义进行剥离。采用 Geohash 编码生成物理前缀，采用轻量化 RQ-VAE 提取协同后缀，从数据源头消解了物理冲突。
+    \item \textbf{基于开源大语言模型的系统性微调与验证：} 依托 LLaMA-3-8B 大语言模型与 LoRA 微调技术，在 Foursquare-NYC 数据集上进行了完备的实验。验证了双轨制 ID 能够有效引导 LLM 形成“先划定商圈，再匹配偏好”的类人推荐推理逻辑，并大幅提升了模型的 Top-1 推荐命中率。
+\end{enumerate}
 
-第四章为可用的\LaTeX 的代码段方便大家进行编辑。
 
-第五、六章是本文的最后两章，作为空白章节例子。
+比如：
+\chapter{绪论}
+\label{cha:introduction}
+\section{研究背景与意义}
+\label{sec:background}
+随着
 
+\section{国内外研究现状和相关工作}
+\label{sec:related_work}

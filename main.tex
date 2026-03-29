@@ -3,8 +3,9 @@
 % !TeX spellcheck = en_US
 
 \documentclass[
-    fontset=fandol,
-    degree=bachelor
+    fontset=fandol,    % 字体设置: windows | mac | ubuntu | fandol。fandol 是思源宋体，支持中文。
+    degree=bachelor,   % 学位类型: doctor | master | bachelor
+    output=electronic  % 输出选项: print (双面打印，默认，有空页) | electronic (电子版阅读，无空页)
 ]{sysuthesis}
 % degree      = doctor | master | bachelor
 % degree-type = academic | professional
@@ -17,32 +18,32 @@
 
 \begin{document}
 
-\maketitle
-\copyrightpage
+\maketitle % 封面
+% \copyrightpage % 版权页
 
 \frontmatter
 \input{docs/abstract.tex}
-\tableofcontents
-\listoffigures
-\listoftables
-% \listoffiguresandtables
-\input{docs/notation.tex}
+% \tableofcontents       % 注释掉这行，不显示主目录
+% \listoffigures         % 注释掉这行，不显示插图目录
+% \listoftables          % 注释掉这行，不显示附表目录
+% \listoffiguresandtables % 注释掉这行，不显示插图和附表目录
+% \input{docs/notation.tex} % 注释掉这行，不显示符号说明
 
 \mainmatter
 \input{docs/chap01.tex}
 \input{docs/chap02.tex}
 \input{docs/chap03.tex}
 \input{docs/chap04.tex}
-\input{docs/chap05.tex}
+% \input{docs/chap05.tex}
 
 \bibliography{reference}  % 参考文献使用 BibTeX 编译
 % \printbibliography       % 参考文献使用 BibLaTeX 编译
 
-\appendix
-\input{docs/complementary.tex}
+% \appendix
+% \input{docs/complementary.tex}
 
-\backmatter
-\input{docs/acknowledgements.tex}
-\input{docs/achievements.tex}
+% \backmatter
+% \input{docs/acknowledgements.tex}
+% \input{docs/achievements.tex}
 
 \end{document}

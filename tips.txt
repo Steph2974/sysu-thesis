@@ -1,0 +1,11 @@
+1. 为什么生成的目录（包括图表清单）是空着的？
+原因： LaTeX 并不是一次性生成所有文档内容的。当它第一次编译代码时，它会按顺序读取正文里的章节标题，并把这些标题信息和对应的页码“记录”到一个名为 .toc (Table of Contents) 的辅助文件中。而在遇到 \tableofcontents 时，它只能读取上一次编译时留下的旧 .toc 文件。因此，第一次编译时，目录是空的。
+
+解决方法： 你需要多次编译你的主文档。
+
+如果你使用的是编辑器（如 VS Code, TeXstudio, TeXShop），请连续点击两到三次“编译”按钮（通常是 XeLaTeX）。
+如果你使用的是命令行，可以连续运行两次：
+bash
+xelatex main.tex
+xelatex main.tex
+最佳实践： 推荐使用模板内置的自动化构建工具。如果你在 Linux/Mac 上，直接在终端运行 make；或者运行 latexmk -xelatex main.tex，这些工具会自动帮你判断需要编译多少次并自动完成。

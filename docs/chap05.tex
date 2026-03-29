@@ -1,9 +1,23 @@
-%% chapter 5 dataset, network structure, experiment and result
-\chapter{实验与结果}
-\label{cha:experiment}
+% chap05.tex
+\chapter{总结与展望}
+\label{chap:conclusion}
 
-\section{关于生僻字}
+\section{本文总结}
+针对当前生成式 POI 推荐算法中由于多源异构特征杂糅而导致的码本崩溃与大语言模型空间幻觉问题，本文进行了深入的理论溯源与工程代码排查。在此基础上，本文提出了一种创新的基于解耦策略的时空双轨制 ID（Decoupled Spatio-Semantic Hybrid ID）生成算法。该算法利用 Geohash 散列算法构建绝对的空间物理约束，辅以轻量化残差向量量化提取柔性用户协同偏好，彻底重塑了物品的语义代号系统。
+依托本地 RTX 4090 算力与开源 LLaMA-3-8B 大语言模型底座，通过严谨的硬件对齐与超参数调优，本文成功在真实签到数据集上实现了最高 36.42\% 的推荐准确率（Acc@1）。研究结果表明，引入外部刚性空间先验并与神经网络隐表示进行解耦融合，是提升大型语言模型在垂直时空领域推荐性能的一条高效途径。
 
-测试生僻字
+\section{未来展望}
+受限于计算资源与实验时间，本研究仍有进一步探索的空间。未来的研究可以从以下几个维度展开：
+第一，探索引入检索增强生成（Retrieval-Augmented Generation, RAG）机制，在 LLM 的上下文窗口中预先注入由轻量级召回模型筛选出的候选 POI 列表，从而将“开放式默写”转化为带约束的生成，进一步压缩非法 ID 的产生空间。
+第二，针对连续特征的离散化坍塌难题，可以尝试跳出启发式的损失函数设计，在量化层引入基于 Sinkhorn 距离的最优传输（Optimal Transport）理论约束，从全局分配代价最小化的数学层面，追求码本利用率的 100\% 均衡。
 
-昇䊒熗庈焾燋庼廎㶭粌纇颣炥䊧彂㢕糑鄜麛麚䴫麌䴠麎塵䴣麆麠䴤麖䴨䴩䴪麘麞麡麍麏麐麔	
+
+% %% chapter 5 dataset, network structure, experiment and result
+% \chapter{实验与结果}
+% \label{cha:experiment}
+
+% \section{关于生僻字}
+
+% 测试生僻字
+
+% 昇䊒熗庈焾燋庼廎㶭粌纇颣炥䊧彂㢕糑鄜麛麚䴫麌䴠麎塵䴣麆麠䴤麖䴨䴩䴪麘麞麡麍麏麐麔	

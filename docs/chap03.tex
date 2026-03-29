@@ -1,125 +1,163 @@
-\chapter{\LaTeX 模板配置与使用}
+% chap03.tex
+\chapter{基于解耦双轨制ID的生成式推荐模型}
+\label{chap:method}
+
+\section{模型总体架构}
+针对现有混合量化策略导致的码本碰撞问题，本文提出了一种基于解耦双轨制 ID 的生成式 POI 推荐模型。该模型主要由两部分构成：基于解耦策略的时空双轨制 ID 构造模块，以及基于 LLaMA-3 的生成式推荐模块。
+
+% 预留插入模型结构图的位置
+% \begin{figure}[htbp]
+%     \centering
+%     \includegraphics[width=0.8\textwidth]{figures/model_arch.pdf}
+%     \caption{解耦双轨制ID的生成式推荐模型总体架构}
+%     \label{fig:model_arch}
+% \end{figure}
+
+\section{刚性物理空间前缀编码}
+在生成式框架下，大模型对实体空间位置的感知完全依赖于输入的 Semantic ID。为彻底根除物理空间的坍塌错乱，本文摒弃了利用神经网络模糊压缩位置信息的方案。对于给定的 POI 经纬度坐标 $(lat, lon)$，直接调用 Geohash 算法生成固定精度的空间散列编码。
+为便于大模型学习空间的层级递进关系，本文将生成的 Geohash 字符串拆分为多个 Token 作为 ID 的前缀序列。例如，将长度为 6 的散列值 \texttt{dr5rev} 拆分为 $\langle geo\_dr5 \rangle \langle geo\_rev \rangle$。这一前缀构成了 POI 绝对物理位置的刚性约束。
+
+\section{柔性协同语义后缀编码}
+在剥离了地理位置特征后，本文为 RQ-VAE 模型进行了有效“减负”。重构后的 POI 输入特征向量 $\mathbf{p}_{sem}$ 仅由类别分布（Category）、时间属性（Time slots）以及最频繁访客的共现信号（Co-visitation patterns）拼接而成。
+将其输入浅层 RQ-VAE 模型进行特征压缩，最终生成形如 $\langle sem\_14 \rangle \langle sem\_05 \rangle$ 的语义后缀。在该机制下，若不同 POI 发生了码本碰撞，则代表它们在“用户偏好与业务属性”上高度同构（例如同为早晨热门的咖啡厅），由于它们已被不同的刚性地理前缀区分，此类语义碰撞不仅无害，反而有助于 LLM 进行泛化推荐。
+
+\section{混合ID序列组织与微调指令构建}
+结合空间前缀与语义后缀，一个 POI 的完整双轨制 ID 序列被定义为：
+\begin{equation}
+    \text{ID}_{POI} = [\langle geo\_prefix \rangle, \langle geo\_suffix \rangle, \langle sem\_layer1 \rangle, \langle sem\_layer2 \rangle]
+\end{equation}
+
+在数据构建阶段，采用滑动窗口（Sliding Window）方法，严格按照时间先后顺序截取用户的历史访问记录以防止数据泄露（Data Leakage）。将用户的历史轨迹序列转化为自然语言指令（Prompt），格式如下：
+\begin{quotation}
+    User visited: $\langle geo\_dr7 \rangle \langle geo\_2hd \rangle \langle sem\_14 \rangle \langle sem\_05 \rangle$ at 2012-07-08 13:47, ... When 2012-11-06 17:07 user is likely to visit:
+\end{quotation}
+
+\section{基于 LLaMA-3-8B 的两段式生成推理}
+将构建好的时序指令集输入 LLaMA-3-8B 进行 LoRA 监督微调。在推理阶段，由于双轨制 ID 的巧妙设计，大语言模型展现出了符合人类决策直觉的“两段式”推理逻辑：首先根据历史轨迹的时空转移规律，自回归地生成目标商圈的地理网格 Token；随后，基于用户的长程兴趣偏好，在预测的网格内生成具体的语义属性 Token，最终精准命中下一个目标 POI。
 
 
-\label{cha:sysu-thesis-latex-install-guide}
-
-本部分内容将让你能够通过本\LaTeX 模板生成一份可用的pdf，并为后面修改源码撰写毕设做准备。
-
-首先，我们会展示最简单的方法：直接使用overleaf进行编写。然后，我们整理了不同环境下\LaTeX 环境的配置指南与不同写作工具的配置技巧，方便各位同学使用本\LaTeX 模板。最后，我们说明了如何开始编写自己的毕业论文（设计）。
+% \chapter{\LaTeX 模板配置与使用}
 
 
-\section{使用Overleaf编写毕设}
+% \label{cha:sysu-thesis-latex-install-guide}
 
-Overleaf\footnote{网址可见\url{https://www.overleaf.com/}}是一个在线的Latex文档协作平台。我们不需要配置任何环境，便能够在上面直接使用本模板进行写作。操作步骤如下：
+% 本部分内容将让你能够通过本\LaTeX 模板生成一份可用的pdf，并为后面修改源码撰写毕设做准备。
 
-第一步，下载本项目压缩包（从\url{https://github.com/SYSU-SCC/sysu-thesis/releases}处下载即可），注意需要下载zip格式的压缩包。
-然后，我们在Overleaf上新建项目，并上传该压缩包，可参考\autoref{fig:overleaf-new-proj}。
-
-
-\begin{figure}[h]
-	\centering
-	\includegraphics[width=0.2\textwidth]{image/chap03/overleaf-create-proj.jpg}
-	\includegraphics[width=0.7\textwidth]{image/chap03/overleaf-upload-proj.jpg}
-	\caption{在Overleaf上创建并上传压缩包。}
-	\label{fig:overleaf-new-proj}
-\end{figure}
-
-第二步，在Overleaf的菜单中调整编译工具为\texttt{xelatex}，可参考\autoref{fig:overleaf-config}。
-
-\begin{figure}[h]
-	\centering
-	\includegraphics[width=0.6\textwidth]{image/chap03/overleaf-config.jpg}
-	\caption{在Overleaf上调整编译工具}
-	\label{fig:overleaf-config}
-\end{figure}
+% 首先，我们会展示最简单的方法：直接使用overleaf进行编写。然后，我们整理了不同环境下\LaTeX 环境的配置指南与不同写作工具的配置技巧，方便各位同学使用本\LaTeX 模板。最后，我们说明了如何开始编写自己的毕业论文（设计）。
 
 
-第三步，点击编译，得到本pdf，可以开始修改pdf了！最终可见\autoref{fig:overleaf-example}。
+% \section{使用Overleaf编写毕设}
+
+% Overleaf\footnote{网址可见\url{https://www.overleaf.com/}}是一个在线的Latex文档协作平台。我们不需要配置任何环境，便能够在上面直接使用本模板进行写作。操作步骤如下：
+
+% 第一步，下载本项目压缩包（从\url{https://github.com/SYSU-SCC/sysu-thesis/releases}处下载即可），注意需要下载zip格式的压缩包。
+% 然后，我们在Overleaf上新建项目，并上传该压缩包，可参考\autoref{fig:overleaf-new-proj}。
 
 
-\begin{figure}[h]
-	\centering
-	\includegraphics[width=0.9\textwidth]{image/chap03/overleaf-example.jpg}
-	\caption{Overleaf使用例子}
-	\label{fig:overleaf-example}
-\end{figure}
+% \begin{figure}[h]
+% 	\centering
+% 	\includegraphics[width=0.2\textwidth]{image/chap03/overleaf-create-proj.jpg}
+% 	\includegraphics[width=0.7\textwidth]{image/chap03/overleaf-upload-proj.jpg}
+% 	\caption{在Overleaf上创建并上传压缩包。}
+% 	\label{fig:overleaf-new-proj}
+% \end{figure}
+
+% 第二步，在Overleaf的菜单中调整编译工具为\texttt{xelatex}，可参考\autoref{fig:overleaf-config}。
+
+% \begin{figure}[h]
+% 	\centering
+% 	\includegraphics[width=0.6\textwidth]{image/chap03/overleaf-config.jpg}
+% 	\caption{在Overleaf上调整编译工具}
+% 	\label{fig:overleaf-config}
+% \end{figure}
 
 
-
-\section{编译环境配置}
-
-编译环境配置相对来说比较简单，下载Tex Live2020并如同一般的程序一样安装即可。
-
-\subsection{编译环境配置：Window篇}
-
-在\url{https://mirrors.tuna.tsinghua.edu.cn/CTAN/systems/texlive/Images/}上下载Tex Live2020并参考教程\footnote{可以参考\url{https://zhuanlan.zhihu.com/p/58811994}}安装即可。
-
-\subsection{编译环境配置：Linux篇}
-
-在\url{https://mirrors.tuna.tsinghua.edu.cn/CTAN/systems/texlive/Images/}上下载Tex Live2020并参考教程\footnote{可以参考\url{https://zhuanlan.zhihu.com/p/55894177}}安装即可。
+% 第三步，点击编译，得到本pdf，可以开始修改pdf了！最终可见\autoref{fig:overleaf-example}。
 
 
-\subsection{编译环境配置：MacOS篇}
-
-在MacOS上配置Latex的环境，这里我们使用的是MacTex。
-
-\begin{enumerate}
-	\item \url{https://www.tug.org/mactex/}下载MacTex安装。
-	\item 安装步骤：不详细展开，按照图形界面点击即可, 傻瓜式安装。
-\end{enumerate}
-
-TIPS：MacTex文件比较大，有2G多，介意的话可以选择MacTex\_Basic包，只有100M以内，但是如果安装MacTex\_Basic，后期可能会遇到各种缺包的问题。
-
-
-安装完成之后，可以简单测试一下安装是否成功。如可以查看Texshop应用是否安装好，或者在命令行测试一下\texttt{xelatex}命令是否可用。
-
-\section{写作环境配置}
-
-不同的写作工具对应不同的写作环境。这里我们给出几个工具的配置例子以供参考。
-
-\subsection{模板编译流程}
-
-由于\LaTeX 的限制，本模板需要经过四次编译才能生成完整的论文：
-
-\begin{enumerate}
-	\item 先使用xelatex编译一次
-	\item 再使用bibtex编译一次
-	\item 然后使用xelatex编译两次
-\end{enumerate}
-
-本编译流程已经写在Makefile中，修改模板源码后只需要执行\texttt{make main}即可按照该流程进行编译并生成最终的pdf。
+% \begin{figure}[h]
+% 	\centering
+% 	\includegraphics[width=0.9\textwidth]{image/chap03/overleaf-example.jpg}
+% 	\caption{Overleaf使用例子}
+% 	\label{fig:overleaf-example}
+% \end{figure}
 
 
 
-\subsection{写作环境配置：Visual Studio Code}
+% \section{编译环境配置}
 
-Visual Studio Code是微软公司推出的轻量代码编辑器，我们可以做一些简单的配置，便可以用该编辑器修改我们的\LaTeX 模板，并实现一键编译。
+% 编译环境配置相对来说比较简单，下载Tex Live2020并如同一般的程序一样安装即可。
 
-\begin{enumerate}
-	\item 安装 Visual Studio Code。
-	\item 安装 LaTeX Workshop 插件。
-\end{enumerate}
+% \subsection{编译环境配置：Window篇}
 
-本项目的\texttt{.vscode/setting.json}下已经包含了与前面所述编译流程相同的配置。正常配置下，每次修改模板源码后按下保存（Ctrl+S），就能够自动进行编译产生pdf。效果图如\autoref{fig:vscode-example}所示。
+% 在\url{https://mirrors.tuna.tsinghua.edu.cn/CTAN/systems/texlive/Images/}上下载Tex Live2020并参考教程\footnote{可以参考\url{https://zhuanlan.zhihu.com/p/58811994}}安装即可。
 
+% \subsection{编译环境配置：Linux篇}
 
-\begin{figure}[h]
-	\centering
-	\includegraphics[width=\linewidth]{image/chap03/vscode-example.png}
-	\caption{vscode配置好后的样例}
-	\label{fig:vscode-example}
-\end{figure}
+% 在\url{https://mirrors.tuna.tsinghua.edu.cn/CTAN/systems/texlive/Images/}上下载Tex Live2020并参考教程\footnote{可以参考\url{https://zhuanlan.zhihu.com/p/55894177}}安装即可。
 
 
-\section{如何开始写毕业论文（设计）}
+% \subsection{编译环境配置：MacOS篇}
 
-首先将所有个人信息，包括学号、姓名、专业、论文题目等，在\texttt{./docs/info.tex}中逐项进行更新。
+% 在MacOS上配置Latex的环境，这里我们使用的是MacTex。
 
-然后我们再编辑\texttt{./docs/abstract.tex}补充论文摘要。
+% \begin{enumerate}
+% 	\item \url{https://www.tug.org/mactex/}下载MacTex安装。
+% 	\item 安装步骤：不详细展开，按照图形界面点击即可, 傻瓜式安装。
+% \end{enumerate}
 
-到了论文主体部分，我们可以自行编辑\texttt{./docs/chap01.tex}，\texttt{./docs/chap02.tex}等文件进行编辑。如果章数不够，可以自行修改\texttt{main.tex}增加新的章节。
-
-当论文主体编写完成后，我们再编辑\texttt{./docs/ack.tex}作为论文致谢。
+% TIPS：MacTex文件比较大，有2G多，介意的话可以选择MacTex\_Basic包，只有100M以内，但是如果安装MacTex\_Basic，后期可能会遇到各种缺包的问题。
 
 
-% 首先将个人信息写到\texttt{./docs/info.tex}中。
+% 安装完成之后，可以简单测试一下安装是否成功。如可以查看Texshop应用是否安装好，或者在命令行测试一下\texttt{xelatex}命令是否可用。
+
+% \section{写作环境配置}
+
+% 不同的写作工具对应不同的写作环境。这里我们给出几个工具的配置例子以供参考。
+
+% \subsection{模板编译流程}
+
+% 由于\LaTeX 的限制，本模板需要经过四次编译才能生成完整的论文：
+
+% \begin{enumerate}
+% 	\item 先使用xelatex编译一次
+% 	\item 再使用bibtex编译一次
+% 	\item 然后使用xelatex编译两次
+% \end{enumerate}
+
+% 本编译流程已经写在Makefile中，修改模板源码后只需要执行\texttt{make main}即可按照该流程进行编译并生成最终的pdf。
+
+
+
+% \subsection{写作环境配置：Visual Studio Code}
+
+% Visual Studio Code是微软公司推出的轻量代码编辑器，我们可以做一些简单的配置，便可以用该编辑器修改我们的\LaTeX 模板，并实现一键编译。
+
+% \begin{enumerate}
+% 	\item 安装 Visual Studio Code。
+% 	\item 安装 LaTeX Workshop 插件。
+% \end{enumerate}
+
+% 本项目的\texttt{.vscode/setting.json}下已经包含了与前面所述编译流程相同的配置。正常配置下，每次修改模板源码后按下保存（Ctrl+S），就能够自动进行编译产生pdf。效果图如\autoref{fig:vscode-example}所示。
+
+
+% \begin{figure}[h]
+% 	\centering
+% 	\includegraphics[width=\linewidth]{image/chap03/vscode-example.png}
+% 	\caption{vscode配置好后的样例}
+% 	\label{fig:vscode-example}
+% \end{figure}
+
+
+% \section{如何开始写毕业论文（设计）}
+
+% 首先将所有个人信息，包括学号、姓名、专业、论文题目等，在\texttt{./docs/info.tex}中逐项进行更新。
+
+% 然后我们再编辑\texttt{./docs/abstract.tex}补充论文摘要。
+
+% 到了论文主体部分，我们可以自行编辑\texttt{./docs/chap01.tex}，\texttt{./docs/chap02.tex}等文件进行编辑。如果章数不够，可以自行修改\texttt{main.tex}增加新的章节。
+
+% 当论文主体编写完成后，我们再编辑\texttt{./docs/ack.tex}作为论文致谢。
+
+
+% % 首先将个人信息写到\texttt{./docs/info.tex}中。
