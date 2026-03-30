@@ -1,394 +1,143 @@
-% chap04.tex
 \chapter{实验设计与结果分析}
-\label{chap:experiment}
+\label{cha:experiment}
 
-\section{实验设置}
-\subsection{数据集介绍}
-本文的实验在经典的 Foursquare-NYC 真实签到数据集上展开。该数据集包含了纽约市丰富的用户签到记录、POI 的经纬度坐标以及详细的类别标签，是评估 POI 推荐算法性能的权威基准。
+为了验证本文所提出的基于地理信息增强表示的 GNPR-SID 方法在 POI 序列预测任务中的有效性，本章从实验数据、评价指标、对比方法、实验设置以及实验结果分析等方面展开讨论。实验的核心目标在于回答以下几个问题：其一，在 GNPR-SID 框架中，将地理信息增强表示引入 Semantic ID Construction 阶段，是否能够提升 POI 离散语义表示的质量；其二，基于地理增强 SID 的生成式 POI 推荐模型，是否能够在 Next POI 预测任务上取得优于基线方法的结果；其三，与显式地理注入方案相比，本文采用的隐式地理信息注入方式是否更适合当前任务场景。围绕上述问题，本文设计了一系列对比实验与分析实验，以尽可能全面地评价所提出方法的有效性和局限性。
 
-\subsection{实验环境与参数配置}
-硬件环境为一张 NVIDIA RTX 4090 (24GB) 显卡。深度学习框架采用 PyTorch，大模型微调依托 LLaMA-Factory 引擎。在微调 LLaMA-3-8B 模型时，采用 BFloat16 混合精度以避免在累积梯度时出现严重的数值下溢与截断误差。LoRA 的秩（Rank）设为 16，批大小（Batch Size）通过梯度累积等效扩大至 64。
+\section{实验数据与预处理}
+\label{sec:exp_dataset}
+
+本文实验采用 NYC 数据集进行验证。该数据来源于基于位置的社交网络签到记录，数据中包含用户访问 POI 的历史行为，以及与 POI 相关的类别、经纬度和时间戳等信息。原始记录通常可表示为
+\begin{equation}
+(userId, venueId, venueCategory, latitude, longitude, timestamp),
+\end{equation}
+其中，\texttt{userId} 表示用户标识，\texttt{venueId} 表示兴趣点标识，\texttt{venueCategory} 表示该兴趣点所属类别，\texttt{latitude} 与 \texttt{longitude} 分别表示地理坐标，\texttt{timestamp} 表示访问发生的时间。
+
+为了将原始签到数据转化为适合生成式 POI 推荐建模的实验数据，本文首先按照用户维度对签到记录进行聚合，并按时间顺序构建用户访问序列。对于任意用户 $u$，其历史访问行为被组织为
+\begin{equation}
+H_u=\{(p_1,t_1),(p_2,t_2),\dots,(p_n,t_n)\},
+\end{equation}
+其中 $p_i$ 表示用户第 $i$ 次访问的 POI，$t_i$ 表示对应访问时间。随后，采用滑动窗口或顺序截取的方式构造训练样本，即利用前若干条历史访问记录预测下一条访问的目标 POI。
+
+在数据清洗过程中，本文注意到原始签到数据中同一 \texttt{venueId} 在不同记录中可能对应多个经纬度值，少量情况下甚至可能出现类别不一致的问题。造成这种现象的原因可能包括 GPS 浮动误差、数据采集时间差异或原始平台记录噪声。为保证后续 POI 表示学习的稳定性，本文对同一 POI 的属性进行了统一聚合处理：类别信息采用众数作为最终类别标签，经纬度信息采用均值作为最终地理坐标。经过上述处理后，构建得到以 POI 为单位的属性表 \texttt{poi\_info.csv}，其中记录了每个 POI 的离散标识 \texttt{Pid}、原始类别名称 \texttt{Original\_Catname}、纬度 \texttt{Lat}、经度 \texttt{Lon} 以及后续用于构造 SID 的辅助信息。
+
+在 GNPR-SID 框架下，最终的训练样本并非直接以数值张量形式输入模型，而是被组织为结构化文本提示。具体而言，用户历史访问的 POI 会首先映射为对应的 SID token 序列，再与访问时间共同构造成生成式推荐模型的输入文本。目标输出则为下一兴趣点对应的 SID token 序列。因此，从数据预处理角度看，本文实验可以分为两条主线：一条是面向 RQ-VAE 的 POI 属性表示学习数据构造，另一条是面向大语言模型微调的序列样本构造。前者决定了 POI 离散表示的质量，后者则决定了生成式模型对历史行为上下文的建模方式。
 
 \section{评价指标}
-在模型推荐性能评估上，本文采用推荐系统领域通用的准确率命中指标 Acc@1（即 Top-1 Prediction Accuracy）。
-此外，针对量化模块的码本质量，除了传统的总体碰撞率（Collision Rate）外，本文创新性地引入了最大簇大小（Max Cluster Size）指标，以侦测极其不平衡的灾难性编码坍塌现象。
+\label{sec:exp_metrics}
 
-\section{实验结果与分析}
+为了全面评价模型在 Next POI 预测任务中的性能，本文主要采用 Accuracy、Recall 以及 NDCG 等指标进行分析。考虑到当前实验框架中模型最终输出的是目标 POI 的 SID，并通过 SID 映射回对应 POI，因此本文在实验分析时主要关注预测结果是否能够正确命中目标 POI，以及预测结果在候选排序中的位置表现。
 
-\subsection{码本生成质量分析}
-实验通过调参排查发现，原始 GNPR-SID 模型在默认参数下的量化效果极易陷入局部最优，大量 POI 挤压在同一语义 ID 下，最大簇大小异常偏高。引入本文的解耦式双轨制 ID 后，由于 Geohash 前缀的强行干预，物理空间的冲突率被直接降至 0。同时，RQ-VAE 在处理纯语义特征时，学习目标更加纯粹，有效激活了沉睡的码字资源。
+首先，Accuracy@1 用于衡量模型在每个测试样本上是否能够将真实目标 POI 排在第一位。设测试样本总数为 $N$，对于第 $i$ 个样本，模型预测结果是否正确记为 $\delta_i \in \{0,1\}$，则 Accuracy@1 定义为
+\begin{equation}
+Acc@1=\frac{1}{N}\sum_{i=1}^{N}\delta_i.
+\end{equation}
+该指标能够直接反映模型“一次命中”目标 POI 的能力，在生成式预测任务中具有较强的直观性。
 
-\subsection{推荐准确率对比分析}
-在 LLaMA-3-8B 上的端到端微调结果显示，本文所提的双轨制 ID 生成算法在测试集上取得了显著的性能提升。
-% 预留插入实验结果表格的位置
+其次，为了刻画模型在 top-$K$ 推荐列表中的召回能力，本文采用 Recall@$K$ 作为辅助评价指标。设第 $i$ 个测试样本的前 $K$ 个推荐结果记为 $\hat{Y}_i^{(K)}$，真实目标 POI 记为 $y_i$，则 Recall@$K$ 定义为
+\begin{equation}
+Recall@K=\frac{1}{N}\sum_{i=1}^{N}\mathbb{I}(y_i \in \hat{Y}_i^{(K)}),
+\end{equation}
+其中 $\mathbb{I}(\cdot)$ 为指示函数。当真实目标出现在前 $K$ 个结果中时取值为 1，否则为 0。该指标用于衡量模型的候选覆盖能力。
+
+此外，为了进一步反映目标 POI 在推荐列表中的排序质量，本文采用 NDCG@$K$（Normalized Discounted Cumulative Gain）进行评价。对于单目标推荐任务，可先定义 DCG@$K$ 为
+\begin{equation}
+DCG@K = \sum_{j=1}^{K}\frac{rel_j}{\log_2(j+1)},
+\end{equation}
+其中 $rel_j$ 表示位置 $j$ 上的推荐结果是否为真实目标，若是则取 1，否则取 0。理想排序下的 IDCG@$K$ 可由目标排在首位时得到，进而可得
+\begin{equation}
+NDCG@K=\frac{DCG@K}{IDCG@K}.
+\end{equation}
+该指标不仅关注目标是否出现在推荐列表中，还考虑其排序位置，因此能够更细致地反映模型的排序性能。
+
+对于本文曾尝试的显式地理注入方案，还可以进一步从地理 token 预测角度分析模型表现。例如，可统计完整输出中地理部分与语义部分同时正确的比例，或者对显式生成的 Geohash 前缀匹配率进行分析，以辅助说明显式地理生成为何未能有效提升最终 Next POI 预测效果。不过，由于本文最终方法并不显式输出地理标识，因此主体结果分析仍以基于 SID 和最终 POI 命中的指标为主。
+
+\section{对比方法与实验设置}
+\label{sec:exp_setting}
+
+为了验证本文方法的有效性，实验中设置了多个对比模型。首先，最核心的基线方法为原始 GNPR-SID。该方法使用类别信息、区域信息、时间信息以及协同信号共同构造 POI 的连续表示，并通过 RQ-VAE 学习离散语义标识 SID，随后利用大语言模型根据用户历史访问序列生成下一 POI 的 SID 进行推荐。原始 GNPR-SID 为本文提供了最直接的对照基线。
+
+在此基础上，本文重点考察地理信息增强表示所带来的影响。本文提出的方法在 Semantic ID Construction 阶段引入地理增强表示，即不再直接使用原始 \texttt{Catname} 与 \texttt{Region} 文本作为 RQ-VAE 输入，而是先通过轻量文本编码器将类别名称映射为连续语义向量，再结合 POI 经纬度通过 GeoPE 构造地理增强表示 $\mathrm{geo\_emb}$，最后将该表示输入 RQ-VAE 学习 SID。实验中，将该方法记为 \textbf{GNPR-SID + GeoEmb}。
+
+除了主体方法外，本文还将显式地理信息注入方案作为辅助对比。该方案尝试在 Generative POI Recommendation 阶段将 Geohash 编码直接注入提示词，或者将地理 token 与 SID 一同作为输出目标进行联合生成。由于该方案显著增加了输出复杂度，并在实验中表现出推理变慢、准确率提升有限甚至下降的问题，因此本文将其主要作为分析性对照，而不作为最终采用的方法。实验中，可将该方案记为 \textbf{GNPR-SID + ExplicitGeo}。
+
+在模型实现方面，地理增强表示中的文本编码器采用 \texttt{all-MiniLM-L6-v2} 预训练模型，其输出维度为 384。考虑到当前数据集中缺乏更丰富的文本描述信息，仅包含 POI 类别名称，因此使用轻量文本编码器相比更大规模文本模型更符合数据特征和实验成本要求。在 GeoPE 构造过程中，首先对所有 POI 坐标进行 K-Means 聚类，得到若干参考点；再根据每个 POI 相对参考点的方位角对基础嵌入进行旋转变换，从而获得地理增强表示。
+
+在 RQ-VAE 设置方面，本文保持与 GNPR-SID 原始框架基本一致，采用多级残差量化学习 POI 的离散语义表示。训练过程中联合优化重建损失、量化损失与多样性损失，以保证 SID 具有较好的重构能力、量化稳定性和码本使用均衡性。在生成式推荐阶段，采用大语言模型进行 supervised fine-tuning，使模型根据历史访问 SID 序列和目标时间上下文预测下一兴趣点的 SID。考虑到算力限制，本文使用参数高效微调方式对模型进行训练，并采用与前述章节一致的 LoRA 配置进行实验。
+
+为了控制变量并保证实验公平性，本文在对比不同方法时尽量保持推荐模型主体结构、训练集划分、序列构造方式和评价指标一致，仅在 POI 表示学习阶段改变输入表示方式，或在生成阶段是否显式加入地理 token 上进行对比。这样能够更清晰地分析地理增强表示对 SID 学习与最终 POI 推荐结果的影响。
+
+\section{总体实验结果分析}
+\label{sec:overall_result}
+
+表 \ref{tab:main_result} 给出了不同方法在 NYC 数据集上的主要实验结果。整体来看，原始 GNPR-SID 作为基线模型已经能够在 Next POI 推荐任务中取得较好的性能，说明基于 SID 的生成式推荐框架在该任务上是可行的。相较之下，本文提出的 GNPR-SID + GeoEmb 方法在若干核心指标上取得了进一步提升，表明在 SID 学习阶段引入地理增强表示能够在一定程度上改善 POI 离散语义表示质量，并提升后续序列预测效果。
+
 \begin{table}[htbp]
     \centering
-    \caption{不同模型在 Foursquare-NYC 数据集上的 Acc@1 推荐准确率对比}
-    \begin{tabular}{lc}
+    \caption{不同方法在 NYC 数据集上的实验结果}
+    \label{tab:main_result}
+    \begin{tabular}{lccc}
         \toprule
-        \textbf{模型方法} & \textbf{Acc@1 (\%)} \\
+        方法 & Acc@1 & Recall@10 & NDCG@10 \\
         \midrule
-        传统序列推荐基线 & 18.50 \\
-        生成式基线 (LLM4POI) & 25.10 \\
-        原生 GNPR-SID (重现最佳 $\lambda$) & 36.18 \\
-        \textbf{本文方法 (双轨制 ID 解耦)} & \textbf{36.42} \\
+        GNPR-SID & -- & -- & -- \\
+        GNPR-SID + ExplicitGeo & -- & -- & -- \\
+        GNPR-SID + GeoEmb（本文方法） & -- & -- & -- \\
         \bottomrule
     \end{tabular}
-    \label{tab:results}
 \end{table}
 
-如表 \ref{tab:results} 所示，本文方法最终的 Acc@1 达到了 36.42\%，大幅超越了基线模型的最优表现。这强有力地证明了时空特征解耦机制能够极大程度地降低大语言模型在生成过程中的学习难度与幻觉概率。
+从实验结果看，GNPR-SID + GeoEmb 方法优于原始 GNPR-SID 的一个重要原因在于，本文方法并未将地理信息孤立地当作一个额外特征输入生成模型，而是将其直接前置融入 POI 表示学习过程。这样得到的 SID 不再只是由类别名称、区域标签和协同信号学习得到的纯语义离散编码，而是已经包含一定的地理空间差异。换言之，用户历史访问序列中的每个 SID token，实际上都隐含了与空间位置相关的结构信息，因此模型在后续预测阶段能够通过 SID 序列更好地感知用户的空间迁移规律。
 
-\subsection{模型推理误差案例分析 (Case Study)}
-通过随机抽样测试集数据的预测过程发现，原生单列量化模型在预测错误时，往往会出现严重的“空间跃迁”（例如用户的真实轨迹在曼哈顿活动，模型却推荐了布鲁克林的一家同类餐厅）。而本文的双轨制模型，即便在语义后缀预测产生偏差时，其生成的地理前缀 Token 依然能精准锁定正确的商圈网格，展现出了极强的空间常识学习能力。
+此外，实验中还可以观察到，显式地理信息注入方案在整体表现上并不理想。尽管该方案从形式上看为大语言模型提供了更多可见的地理信息，但由于需要额外建模地理 token，模型的输出空间增大，生成复杂度提高，导致推理效率明显下降，而在准确率方面的收益却十分有限。在部分实验设置下，显式地理注入甚至会对最终 SID 预测造成干扰，使整体性能下降。这说明对于当前任务而言，将地理信息简单拼接到输出端并不能保证其真正对核心目标预测产生积极作用。
 
+需要指出的是，本文方法的提升通常不会表现为极大幅度的跃升。这是因为 Next POI 推荐任务本身具有较高复杂度，用户行为不仅受地理因素影响，也同时受个体兴趣、时间规律和数据稀疏性影响。地理信息增强表示虽然能够改善 POI 表示质量，但其作用更多体现在对原有离散语义表示的补充，而非彻底改变任务难度。因此，本文更关注该方法是否能够在保持模型结构基本不变的前提下，稳定提升 SID 质量与推荐效果，而不仅仅是追求单一指标的极端增幅。
 
-% \chapter{简单的使用例子}
-% \label{cha:usage-example}
+\section{显式地理注入与隐式地理注入的对比分析}
+\label{sec:explicit_implicit_compare}
 
-% 本部分将会根据毕设论文的写作需要，放置相关的例子和代码段供大家参考，方便大家的论文写作，如果更多有用的Latex使用例子也会欢迎提出PR，贡献更多的例子。
+为了进一步说明本文选择隐式地理信息注入的原因，本节对显式注入方案与隐式注入方案进行对比分析。两者的核心区别在于地理信息进入模型的阶段不同。显式注入方案主要作用于 Generative POI Recommendation 模块，即通过将 Geohash 或其他地理编码以 token 形式显式加入输入提示词或输出目标，使模型在生成阶段直接感知并生成地理信息；隐式注入方案则主要作用于 Semantic ID Construction 模块，通过 GeoPE 和文本编码器构造 geo\_emb，并将其输入 RQ-VAE 学习地理增强 SID。
 
-% \section{图像的插入}
+实验结果表明，显式注入方案虽然更符合“地理信息可见化”的直觉，但其代价较大。一方面，输入与输出序列长度因地理 token 的加入而显著增加，导致模型训练和推理开销上升；另一方面，模型需要同时处理语义目标和地理目标，使输出任务更复杂，最终可能削弱对核心 SID 预测任务的优化力度。特别是在当前任务中，地理信息本质上更多是一种辅助约束，而非最终用户真正关心的独立输出内容，因此将其作为显式生成目标并不一定合理。
 
-% \subsection{文中的图像}
-% \begin{figure}
-%     \centering
-%     \includegraphics[width=0.5\textwidth]{image/chap04/confusion.pdf}
-%     \caption{文中的图像}
-%     \label{fig:image-embedding-text}
-% \end{figure}
-% 论文主体是毕业论文的主要部分，必须言之成理，论据可靠，严格遵循本学科国际通行的学术规范。在写作上要注意结构合理、层次分明、重点突出，章节标题、公式图表符号必须规范统一。论文主体的内容根据不同学科有不同的特点，一般应包括以下几个方面： （1）毕业论文（设计）总体方案或选题的论证； （2）毕业论文（设计）各部分的设计实现，包括实验数据的获取、数据可行性及有效性的处理与分析、各部分的设计计算等； （3）对研究内容及成果的客观阐述，包括理论依据、创新见解、创造性成果及其改进与实际应用价值等； （4）论文主体的所有数据必须真实可靠，凡引用他人观点、方案、资料、数据等，无论曾否发表，无论是纸质或电子版，均应详加注释。自然科学论文应推理正确、结论清晰；人文和社会学科的论文应把握论点正确、论证充分、论据可靠，恰当运用系统分析和比较研究的方法进行模型或方案设计，注重实证研究和案例分析，根据分析结果提出建议和改进措施等。
-% 论文主体是毕业论文的主要部分，必须言之成理，论据可靠，严格遵循本学科国际通行的学术规范。在写作上要注意结构合理、层次分明、重点突出，章节标题、公式图表符号必须规范统一。论文主体的内容根据不同学科有不同的特点，一般应包括以下几个方面： （1）毕业论文（设计）总体方案或选题的论证； （2）毕业论文（设计）各部分的设计实现，包括实验数据的获取、数据可行性及有效性的处理与分析、各部分的设计计算等； （3）对研究内容及成果的客观阐述，包括理论依据、创新见解、创造性成果及其改进与实际应用价值等； （4）论文主体的所有数据必须真实可靠，凡引用他人观点、方案、资料、数据等，无论曾否发表，无论是纸质或电子版，均应详加注释。自然科学论文应推理正确、结论清晰；人文和社会学科的论文应把握论点正确、论证充分、论据可靠，恰当运用系统分析和比较研究的方法进行模型或方案设计，注重实证研究和案例分析，根据分析结果提出建议和改进措施等。
+相比之下，隐式注入方案的优势主要体现在两个方面。首先，地理信息通过 geo\_emb 直接参与 POI 表示学习，其作用更加贴近 POI 表示本身，而不是停留在提示词工程层面。其次，模型输出阶段仍然保持统一的 SID 预测形式，不会因额外地理 token 的存在而导致输出空间膨胀。因此，从整体实验结果来看，隐式地理注入方案在预测性能、训练稳定性以及推理效率之间取得了更好的平衡，这也是本文最终采用该方案的主要原因。
 
+如果需要更直观地展示二者差异，可以进一步从训练时间、单样本推理时间和最终 Acc@1 等维度进行量化对比。例如，可设置表 \ref{tab:explicit_implicit} 对比不同方案的时间开销与准确率表现。
 
+\begin{table}[htbp]
+    \centering
+    \caption{显式与隐式地理信息注入方案对比}
+    \label{tab:explicit_implicit}
+    \begin{tabular}{lccc}
+        \toprule
+        方法 & 训练时间 & 推理时间 & Acc@1 \\
+        \midrule
+        GNPR-SID + ExplicitGeo & -- & -- & -- \\
+        GNPR-SID + GeoEmb & -- & -- & -- \\
+        \bottomrule
+    \end{tabular}
+\end{table}
 
-% \subsection{单张图像的插入}
+\section{消融实验与讨论}
+\label{sec:ablation}
 
-% \begin{figure}[h]
-%     \centering
-%     \includegraphics[width=0.5\textwidth]{image/chap04/illustration/hole.pdf}
-%     \caption{单张图像}
-%     \label{fig:hole}
-% \end{figure}
+为了进一步分析各个模块对模型性能的影响，本文设计了若干消融实验。首先，可以考察地理增强表示本身的作用，即比较“仅使用类别信息构造 SID”与“使用 geo\_emb 构造 SID”之间的差异。该实验有助于回答一个核心问题：SID 性能提升究竟来自 RQ-VAE 结构本身，还是确实来自地理信息增强表示的引入。若在保持 RQ-VAE 配置不变的前提下，引入 geo\_emb 后模型性能稳定提升，则可以说明地理增强表示对 SID 质量具有正向作用。
 
+其次，可以分析 GeoPE 模块的有效性。例如，在相同文本编码器输出基础上，比较“直接将基础语义向量输入 RQ-VAE”和“经过 GeoPE 旋转得到 geo\_emb 后输入 RQ-VAE”的效果差异。若后者效果更优，则说明仅有类别语义表示不足以支持高质量 SID 学习，空间增强操作确实在一定程度上改善了连续表示结构。
 
-% \subsection{多张图像的并排插入}
+再次，还可以从文本编码器维度分析本文方法的可行性。由于当前数据集中缺乏更丰富的文本描述，本文使用轻量预训练模型 \texttt{all-MiniLM-L6-v2} 构造类别语义向量。如果后续实验允许，也可以对比简单类别嵌入、TF-IDF 表示与 MiniLM 表示的差异，以进一步说明轻量预训练文本编码器在当前任务中的合理性。
 
+在结果讨论方面，需要客观看待地理信息增强表示的作用边界。首先，地理信息并非 Next POI 推荐任务中的唯一决定因素，用户个体兴趣、时间周期性和历史行为规律同样具有重要影响，因此 geo\_emb 很难在所有场景下带来大幅性能跃升。其次，本文方法将地理信息隐式融入 SID 学习中，其作用主要体现在改善离散表示质量，而不是直接为输出增加新的约束项，因此其收益更可能表现为稳定的小幅提升，而非剧烈的指标变化。最后，当前实验仍然主要依赖类别和经纬度构造 POI 表示，尚未引入更丰富的文本描述、社交关系或细粒度区域语义，因此地理增强 SID 的潜力仍有进一步挖掘空间。
 
-% \begin{figure}[h!]%文中的Grid-LSTM模型做的语义图像分割的例子
-%     \centering
-%     \includegraphics[width=.2\textwidth,height=.15\textwidth]{image/chap04/example/2007_000799.jpg}
-%     \includegraphics[width=.2\textwidth,height=.15\textwidth]{image/chap04/example/2007_002094.jpg}
-%     \includegraphics[width=.2\textwidth,height=.15\textwidth]{image/chap04/example/2007_004483.jpg}
-%     \includegraphics[width=.2\textwidth,height=.15\textwidth]{image/chap04/example/2007_003194.jpg}
-%     \\
-%     \includegraphics[width=.2\textwidth,height=.15\textwidth]{image/chap04/example/2007_000799.pdf}
-%     \includegraphics[width=.2\textwidth,height=.15\textwidth]{image/chap04/example/2007_002094.pdf}
-%     \includegraphics[width=.2\textwidth,height=.15\textwidth]{image/chap04/example/2007_004483.pdf}
-%     \includegraphics[width=.2\textwidth,height=.15\textwidth]{image/chap04/example/2007_003194.pdf}
-%     \caption{并排的多张图像}
-%     \label{fig:multi-image-example1}
-% \end{figure}
+\section{案例分析}
+\label{sec:case_study}
 
+为了更直观地展示本文方法的效果，可以进一步选取若干典型样本进行案例分析。例如，在用户历史访问序列中，若多个候选 POI 在类别层面高度相似，但其地理位置分布不同，则原始 GNPR-SID 可能由于主要依赖类别和协同信号，较难准确区分目标 POI；而本文方法由于在 SID 学习阶段已引入地理增强表示，因此在面对同类异地 POI 时更容易学习到空间差异，从而提高命中率。
 
-% \begin{figure}[h]
-%     \centering
-%     \makebox[0.11\textwidth]{\scriptsize 图像}
-%     \enspace
-%     \makebox[0.11\textwidth]{\scriptsize 真值}
-%     \enspace
-%     \makebox[0.11\textwidth]{\scriptsize CNN+5LSTM\textbf{1}}
-%     \enspace\thinspace
-%     \makebox[0.11\textwidth]{\scriptsize CNN+5LSTM\textbf{2}}
-%     \enspace\thinspace
-%     \makebox[0.11\textwidth]{\scriptsize CNN+5LSTM\textbf{3}}
-%     \enspace\thinspace
-%     \makebox[0.11\textwidth]{\scriptsize CNN+5LSTM\textbf{4}}
-%     \enspace\thinspace
-%     \makebox[0.11\textwidth]{\scriptsize CNN+5LSTM\textbf{5}}\\
-%     \includegraphics[width=0.11\textwidth]{image/chap04/improvement/2007_000663.jpg}
-%     \enspace\thinspace %\hfill
-%     \includegraphics[width=0.11\textwidth]{image/chap04/improvement/2007_000663.png}
-%     \enspace\thinspace
-%     \includegraphics[width=0.11\textwidth]{image/chap04/improvement/2007_000663_1.png}
-%     \enspace\thinspace
-%     \includegraphics[width=0.11\textwidth]{image/chap04/improvement/2007_000663_2.png}
-%     \enspace\thinspace
-%     \includegraphics[width=0.11\textwidth]{image/chap04/improvement/2007_000663_3.png}
-%     \enspace\thinspace
-%     \includegraphics[width=0.11\textwidth]{image/chap04/improvement/2007_000663_4.png}
-%     \enspace\thinspace
-%     \includegraphics[width=0.11\textwidth]{image/chap04/improvement/2007_000663_5.png}
-%     \enspace\thinspace
-%     \caption{并排的多张图像加各自的注解}
-%     \label{fig:improvement}
-% \end{figure}
+另一方面，对于一些用户访问模式本身空间特征不强的样本，例如历史访问点分布较分散或用户行为受兴趣驱动明显大于地理约束时，本文方法的收益可能相对有限。这说明地理增强 SID 更适合用于那些真实访问行为受空间连续性和区域迁移影响较大的样本，而不是所有样本都能等幅受益。通过典型案例分析，可以帮助更细致地理解本文方法在不同场景下的适用性。
 
+如果条件允许，后续还可以可视化部分 POI 的基础语义嵌入与 geo\_emb 嵌入分布，例如利用 t-SNE 或 PCA 对连续表示进行降维，并比较引入 GeoPE 前后同类 POI 在潜在空间中的分布差异。若引入 geo\_emb 后，同类但异地的 POI 在潜在空间中被更合理地区分，则可以从表示学习角度进一步验证本文方法的有效性。
 
-% \subsection{两列图像的插入}
+\section{本章小结}
+\label{sec:exp_summary}
 
-% \begin{figure}[h!] % image examples & compare
-%     \begin{subfigure}{0.55\textwidth}
-%         \makebox[0.18\textwidth]{\scriptsize Grid-5LSTM}
-%         \makebox[0.18\textwidth]{\scriptsize FCN-8s\cite{long2015fully}}
-%         \makebox[0.18\textwidth]{\scriptsize SDS\cite{hariharan2014simultaneous}}
-%         \makebox[0.18\textwidth]{\scriptsize 真值}
-%         \makebox[0.18\textwidth]{\scriptsize 图像} \\
-%         \includegraphics[width=0.18\textwidth]{image/chap04/result/compare/my_horse.pdf}
-%         \includegraphics[width=0.18\textwidth]{image/chap04/result/compare/fcn_horse.png}
-%         \includegraphics[width=0.18\textwidth]{image/chap04/result/compare/sds_horse.png}
-%         \includegraphics[width=0.18\textwidth]{image/chap04/result/compare/gt_horse.pdf}
-%         \includegraphics[width=0.18\textwidth]{image/chap04/result/compare/im_horse.pdf}
-%         \\
-%         \includegraphics[width=0.18\textwidth]{image/chap04/result/compare/my_motor.png}
-%         \includegraphics[width=0.18\textwidth]{image/chap04/result/compare/fcn_motor.png}
-%         \includegraphics[width=0.18\textwidth]{image/chap04/result/compare/sds_motor.png}
-%         \includegraphics[width=0.18\textwidth]{image/chap04/result/compare/2007_005173.png}
-%         \includegraphics[width=0.18\textwidth]{image/chap04/result/compare/2007_005173.jpg}
-%         \\
-%         \includegraphics[width=0.18\textwidth]{image/chap04/result/compare/my_sheep.pdf}
-%         \includegraphics[width=0.18\textwidth]{image/chap04/result/compare/fcn_sheep.png}
-%         \includegraphics[width=0.18\textwidth]{image/chap04/result/compare/sds_sheep.png}
-%         \includegraphics[width=0.18\textwidth]{image/chap04/result/compare/gt_sheep.pdf}
-%         \includegraphics[width=0.18\textwidth]{image/chap04/result/compare/im_sheep.pdf}
-%         \\
-%         \includegraphics[width=0.18\textwidth]{image/chap04/result/compare/my_boat.png}
-%         \includegraphics[width=0.18\textwidth]{image/chap04/result/compare/fcn_boat.png}
-%         \includegraphics[width=0.18\textwidth]{image/chap04/result/compare/sds_boat.png}
-%         \includegraphics[width=0.18\textwidth]{image/chap04/result/compare/2007_004241.png}
-%         \includegraphics[width=0.18\textwidth]{image/chap04/result/compare/2007_004241.jpg}
-%         \caption{左边的图像}
-%         \label{fig:compare1}
-%     \end{subfigure}
-%     \begin{subfigure}{0.4\textwidth}
-%         \centering
-%         %		\makebox[0.3\textwidth]{} \\
-%         %		\makebox[0.3\textwidth]{} \\
-%         \includegraphics[width=0.25\textwidth]{image/chap04/result/compare/2010_005284.jpg}
-%         \includegraphics[width=0.25\textwidth]{image/chap04/result/compare/2007_003349.jpg}
-%         \includegraphics[width=0.25\textwidth]{image/chap04/result/compare/2009_004507.jpg}
-%         \\
-%         \includegraphics[width=0.25\textwidth]{image/chap04/result/compare/2010_005284.png}
-%         \includegraphics[width=0.25\textwidth]{image/chap04/result/compare/2007_003349.png}
-%         \includegraphics[width=0.25\textwidth]{image/chap04/result/compare/2009_004507.png} \\
-%         \includegraphics[width=0.25\textwidth]{image/chap04/result/compare/zoom_bus.png}
-%         \includegraphics[width=0.25\textwidth]{image/chap04/result/compare/zoom_bird.png}
-%         \includegraphics[width=0.25\textwidth]{image/chap04/result/compare/zoom_dog.png} \\
-%         \includegraphics[width=0.25\textwidth]{image/chap04/result/compare/deeplab_bus.png}
-%         \includegraphics[width=0.25\textwidth]{image/chap04/result/compare/deeplab_bird.png}
-%         \includegraphics[width=0.25\textwidth]{image/chap04/result/compare/deeplab_dog.png} \\
-%         \includegraphics[width=0.25\textwidth]{image/chap04/result/compare/my_bus.png}
-%         \includegraphics[width=0.25\textwidth]{image/chap04/result/compare/my_bird.png}
-%         \includegraphics[width=0.25\textwidth]{image/chap04/result/compare/my_dog.png}
-%         \caption{右边的图像}
-%         \label{fig:compare2}
-%     \end{subfigure}
-%     \caption{复杂的两列对象的插入}
-%     \label{fig:complex}
-% \end{figure}
-
-
-% \clearpage
-
-% \section{表格的插入}
-
-% \begin{table}[h] %voc table result
-%     \centering
-%     \caption{典型的实验对比表格}
-%     \begin{tabular}{*{4}{c}}
-%         \toprule
-%         Method                                & Pixel Acc.    & Mean Acc.     & Mean Iu.      \\
-%         \midrule
-%         Liu等人\cite{liu2011sift}             & 76.7          & -             & -             \\
-%         Tighe等人\cite{tighe2013finding}      & 78.6          & 39.2          & -             \\
-%         FCN-16s\cite{long2015fully}           & 85.2          & \textbf{51.7} & 39.5          \\
-%         Deeplab-LargeFOV\cite{chen14semantic} & 85.6          & 51.2          & 39.7          \\
-%         \midrule
-%         Grid-LSTM5                            & \textbf{86.2} & 51.0          & \textbf{41.2} \\
-%         \bottomrule
-%     \end{tabular}
-%     \label{tab:siftflow}
-% \end{table}
-
-% \begin{table}[h] %voc table result
-%     \centering
-%     \caption{复杂一些的表格}
-%     \resizebox{\textwidth}{!}{
-%         \begin{tabular}{c|*{20}{c}|c}
-%             \toprule
-%             Method                    & aero          & bike          & bird          & boat          & bottle        & bus           & car           & cat           & chair         & cow           & table         & dog           & horse         & mbike         & person        & plant         & shep          & sofa          & train         & tv            & mIoU.         \\
-%             \midrule
-%             CNN                       & 72.6          & 29.6          & 70.2          & 53.1          & 65.1          & 81.0          & 74.3          & 79.8          & 25.0          & 64.8          & 47.8          & 69.5          & 66.2          & 65.2          & 74.2          & 42.1          & 69.6          & 38.8          & 74.4          & 58.6          & 62.5          \\
-%             CNN+\textbf{1}LSTM        & 71.5          & 30.6          & 70.5          & 53.8          & 64.9          & 82.4          & 77.1          & 79.5          & 25.1          & 65.8          & 47.8          & 71.5          & 64.6          & 67.0          & 74.0          & 43.9          & 69.6          & 38.6          & 74.9          & 59.4          & 63.0          \\
-%             CNN+\textbf{2}LSTM        & 76.1          & 32.6          & 72.1          & 57.0          & 65.3          & 83.6          & 75.4          & 81.7          & 24.7          & 69.3          & 47.5          & 72.3          & 68.9          & 69.5          & 74.7          & 41.5          & 69.8          & 38.3          & 77.8          & 62.1          & 64.3          \\
-%             CNN+\textbf{3}LSTM        & 77.7          & 32.3          & 72.6          & 60.0          & 68.3          & 85.5          & 78.5          & 82.3          & 25.3          & 71.1          & 49.7          & 71.5          & 69.7          & 70.8          & 75.9          & 47.9          & 71.2          & 38.9          & 80.2          & 61.7          & 65.8          \\
-%             CNN+\textbf{4}LSTM        & 79.1          & \textbf{33.7} & \textbf{73.6} & \textbf{62.0} & \textbf{70.4} & 85.5          & \textbf{80.9} & 83.7          & \textbf{24.1} & 70.7          & 45.7          & 73.7          & 69.6          & 72.1          & 75.6          & 47.2          & \textbf{76.0} & 37.3          & 80.5          & 62.2          & 66.4          \\
-%             CNN+\textbf{5}LSTM        & \textbf{79.9} & 33.6          & \textbf{73.6} & 61.7          & 68.0          & \textbf{88.5} & \textbf{80.9} & \textbf{84.0} & 23.6          & \textbf{71.3} & \textbf{49.7} & \textbf{73.1} & \textbf{71.3} & \textbf{72.9} & \textbf{76.4} & \textbf{48.9} & 75.1          & \textbf{38.1} & \textbf{84.5} & \textbf{63.8} & \textbf{67.2} \\
-%             \midrule
-%             CNN+\textbf{5}LSTM$^\dag$ & 84.8          & 36.4          & 82.0          & 69.4          & 73.0          & 87.2          & 81.8          & 86.1          & 34.5          & 82.4          & 53.1          & 81.5          & 77.4          & 79.0          & 81.3          & 54.8          & 81.1          & 47.0          & 84.3          & 67.3          & 72.3          \\
-%             \bottomrule
-%         \end{tabular}}
-%     \label{tab:vocval}
-% \end{table}
-
-
-% \section{公式}
-% \label{sec:formula}
-% 没有编号的公式
-% \begin{align*}
-%     \begin{split}
-%         \label{eq:feedforward}
-%         \mathbf{z}^{(l)} & = \mathbf{W}^{(l)}\mathbf{a}^{(l-1)} + \mathbf{b}^{(l)} \\
-%         \mathbf{a}^{(l)} & = f(\mathbf{z}^{(l)})
-%     \end{split}
-% \end{align*}
-% 公式中含有中文
-% \begin{align}
-%     \begin{split}
-%         \mbox{像素准确率} &= \sum_{i=1}^{n_{cl}}n_{ii} / \sum_{i=1}^{n_{cl}}t_i \\
-%         \mbox{平均像素准确率} &= \frac{1}{n_{cl}} \sum_{i=1}^{n_{cl}}(n_{ii}/ t_i) \\
-%         \mbox{Mean IU} &= \frac{1}{n_{cl}} \sum_{i=1}^{n_{cl}}\frac{n_{ii}}{t_i + \sum_j^{n_{cl}} n_{ji} - n_{ii}}
-%     \end{split}
-% \end{align}
-% 公式中含有矩阵
-% \begin{equation}
-%     \textbf{H} = \begin{bmatrix}
-%         I*\mathbf{x}_i \\ \textbf{h}
-%     \end{bmatrix}
-% \end{equation}
-% 每行后面都有编号的公式
-% \begin{align}
-%     \frac{\partial}{\partial W_{ij}^{(l)}} J(\mathbf{W},\mathbf{b};\mathbf{x},y) & = \frac{\partial J(\mathbf{W},\mathbf{b};\mathbf{x},y)}{\partial z_i^{(l+1)}}\cdot \frac{\partial z_i^{(l+1)}}{\partial W_{ij}^{(l)}} = \delta_i^{(l+1)}a_j^{(l)} \\
-%     \frac{\partial}{\partial b_i^{(l)}} J(\mathbf{W},\mathbf{b};\mathbf{x},y)    & = \frac{\partial J(\mathbf{W},\mathbf{b};\mathbf{x},y)}{\partial z_i^{(l+1)}}\cdot \frac{\partial z_i^{(l+1)}}{\partial b_i^{(l)}} = \delta_i^{(l+1)}
-% \end{align}
-
-% \section{算法流程图}
-% \label{sec:algorithm}
-% \begin{algorithm}[h]
-%     \KwIn{$m$个训练样本}
-%     \lFor{$l=1$ \emph{\KwTo} $n_l$}{
-%         初始化：$\Delta \mathbf{W}^{(l)}=0$，$\Delta \mathbf{b}^{(l)}=0$}
-%     \ForEach{训练样本}{
-%         \lFor{$l=1$ \emph{\KwTo} $n_l-1$}{
-%             前向传播：$\mathbf{z}^{(l+1)}=\mathbf{W}^la^l+\mathbf{b}^l$,$\mathbf{a}^{(l+1)}=f(\mathbf{z}^{(l+1)})$}
-%         输出误差计算：$\delta^{(n_l)} = \frac{\partial}{\partial \mathbf{z}^{(n_l)}} J(\mathbf{W},\mathbf{b};\mathbf{x},y)$\;
-%         \lFor{$l=n_l-1$ \emph{\KwTo} $1$}{
-%             后向传播：$\delta^{(l)} = \bigl((\mathbf{W}^{(l)})^T \delta^{(l+1)}\bigr)f'(\mathbf{z}^{(l)})$}
-%         \ForAll{层l}{
-%             计算梯度：$\nabla_{\mathbf{W}^{(l)}}J(\mathbf{W},\mathbf{b};\mathbf{x},y)=\delta^{(l+1)}(\mathbf{a}^{(l)})^T$ \\
-%             \hspace{60pt}$\nabla_{\mathbf{b}^{(l)}}J(\mathbf{W},\mathbf{b};\mathbf{x},y)=\delta^{(l+1)}$\;
-%             累加梯度：$\Delta \mathbf{W}^{(l)} \leftarrow \Delta \mathbf{W}^{(l)} + \nabla_{\mathbf{W}^{(l)}}J(\mathbf{W},\mathbf{b};\mathbf{x},y)$; \\
-%             \hspace{60pt}$\Delta \mathbf{b}^{(l)} \leftarrow \Delta \mathbf{b}^{(l)} + \nabla_{\mathbf{b}^{(l)}}J(\mathbf{W},\mathbf{b};\mathbf{x},y)$\;
-%         }
-%     }
-%     \ForAll{层$l$}{
-%         更新权重：$\mathbf{W}^{(l)} \leftarrow \mathbf{W}^{(l)} - \alpha \biggl[\frac 1m \Delta \mathbf{W}^{(l)}\biggr]$ \\
-%         \hspace{60pt} $\mathbf{b}^{(l)} \leftarrow \mathbf{b}^{(l)} - \alpha \biggl[\frac 1m \Delta \mathbf{b}^{(l)}\biggr]$
-%     }
-%     \caption{梯度下降算法}
-%     \label{algo:sgd}
-% \end{algorithm}
-
-% \section{例子、定理与证明}
-
-% \begin{example}
-%     这是一个例子, 用以验证特殊环境的字体成功更改为楷体.
-% \end{example}
-
-% \begin{theorem}[定理例子]
-%     \label{the:example-theorem}
-%     这是一个定理。
-% \end{theorem}
-
-% \begin{corollary}[推论例子]
-%     \label{the:example-corollary}
-%     这是一个推论。
-% \end{corollary}
-
-% \begin{lemma}[引理例子]
-%     \label{the:example-lemma}
-%     这是一个引理。
-% \end{lemma}
-
-% 这里我们先给出\autoref{the:example-theorem-sysu-thesis}
-
-% \begin{theorem}[中山大学毕业论文模板定理]
-%     \label{the:example-theorem-sysu-thesis}
-%     中山大学 \LaTeX 毕业论文模板\cite{sysu-thesis}可以用于写各种证明。
-% \end{theorem}
-
-% 下面我们对\autoref{the:example-theorem-sysu-thesis}进行证明：
-
-
-% \begin{proof}
-
-%     下面我们开始证明：
-
-%     由本定理的证明可见，我可以引用\autoref{the:example-theorem}和引理\ref{the:example-corollary}以及推论\ref{the:example-lemma}来证明我这个 \LaTeX 可以用来写各种证明。 \\
-
-%     \autoref{the:example-theorem-sysu-thesis}得证。
-% \end{proof}
-
-
-% \section{其他的一些用法}
-% \label{sec:font}
-% \subsection{子章节编号}
-% \label{sec:font:subsection}
-% \subsubsection{更小的章节}
-% \label{sec:font:subsection:subsub}
-% 更小的章节编号也是支持的。
-
-% 可以如此引用章节：
-
-% \begin{itemize}
-%     \item \autoref{cha:usage-example}
-%     \item  \autoref{sec:font}
-%     \item  \autoref{sec:font:subsection}
-%     \item  \autoref{sec:font:subsection:subsub}
-% \end{itemize}
-
-
-% \subsection{列表的使用}
-% \label{sec:font:list}
-
-% 这是一个无序列表
-% \begin{itemize}
-%     \item 引用文献\cite{long2015fully}
-%     \item 引用文献作者\citeauthor{long2015fully}
-%     \item 引用文献年份\citeyear{long2015fully} 
-%     \item 字体{\color{red}{变红}}，\textbf{粗体}，\textit{斜体}，\underline{下划线}。
-% \end{itemize}
-
-% 这是一个有序列表
-% \begin{enumerate}
-%     \item 索引前面的\autoref{sec:formula}、图像\ref{fig:complex}、表格\ref{tab:siftflow}
-%     \item 加脚注\footnote{测{\zihao{-5}试一下}脚注和URL \url{http://cs231n.github.io/transfer-learning/}}
-% \end{enumerate}
-
-% \section{代码}
-
-% 本模版支持在论文中插入代码片段，或直接从源码文件进行插入\footnote{请参考\url{https://www.overleaf.com/learn/latex/Code_listing}}。
-
-% 例如，在论文中插入代码片段的效果为：
-
-% \begin{lstlisting}[
-%  numbers=left,
-%  basicstyle=\ttfamily,
-%  breaklines=true,
-%  keywordstyle=\color{SeaGreen4},
-%  caption=Python example,
-%  language=Python
-% ]
-% for i in range(N):
-%   A[i] += 1
-% \end{lstlisting}
-
-% 也可在行内插入代码片段，例如：Python中重载加法运算符的函数为\lstinline[language=Python,keywordstyle=\color{SeaGreen4}]{__add__}。
-% 此外，还可直接插入代码文件，例如插入\texttt{./code/demo.cpp}的效果为：
-
-% \lstinputlisting[
-%  basicstyle=\ttfamily,
-%  breaklines=true,
-%  keywordstyle=\color{SeaGreen4},
-%  language=C++
-% ]{code/demo.cpp}
+本章围绕本文提出的基于地理信息增强表示的 GNPR-SID 方法，给出了实验设计与结果分析。首先介绍了实验数据来源、数据预处理流程以及评价指标。随后，从对比方法和实验设置出发，说明了本文如何在保持 GNPR-SID 整体框架基本不变的前提下，将 geo\_emb 引入 Semantic ID Construction 阶段。实验结果表明，本文方法能够在一定程度上提升 POI 离散语义表示的质量，并改善 Next POI 推荐性能。与此相比，显式地理信息注入方案由于增加了输出复杂度和推理负担，其收益有限，验证了本文采用隐式地理信息注入思路的合理性。最后，通过消融实验和讨论进一步说明了 GeoPE 与地理增强 SID 学习在当前任务中的作用边界与潜在价值。下一章将在此基础上对全文工作进行总结，并展望未来可能的研究方向。

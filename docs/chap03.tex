@@ -1,163 +1,174 @@
-% chap03.tex
-\chapter{基于解耦双轨制ID的生成式推荐模型}
-\label{chap:method}
+\chapter{基于地理信息增强的 GNPR-SID 方法}
+\label{cha:method}
 
-\section{模型总体架构}
-针对现有混合量化策略导致的码本碰撞问题，本文提出了一种基于解耦双轨制 ID 的生成式 POI 推荐模型。该模型主要由两部分构成：基于解耦策略的时空双轨制 ID 构造模块，以及基于 LLaMA-3 的生成式推荐模块。
+本章主要介绍本文所采用的方法框架及其改进思路。本文的研究工作建立在 GNPR-SID 框架基础之上，其核心目标是面向 Next POI 推荐任务，学习适合生成式模型建模的离散语义标识，并利用大语言模型完成下一兴趣点预测。针对原始 GNPR-SID 在地理信息建模方面存在的不足，本文尝试从地理信息注入方式出发，对原始方法进行改进。经过对显式注入与隐式注入两种方案的比较分析，本文最终选择在 Semantic ID Construction 阶段引入地理增强表示，通过 GeoPE 与文本编码器构造包含空间信息的连续 POI 表示，并将其送入 RQ-VAE 学习地理增强的语义 ID，从而提升 POI 表示的空间感知能力。
 
-% 预留插入模型结构图的位置
-% \begin{figure}[htbp]
-%     \centering
-%     \includegraphics[width=0.8\textwidth]{figures/model_arch.pdf}
-%     \caption{解耦双轨制ID的生成式推荐模型总体架构}
-%     \label{fig:model_arch}
-% \end{figure}
+\section{GNPR-SID 原始框架}
+\label{sec:gnprsid_framework}
 
-\section{刚性物理空间前缀编码}
-在生成式框架下，大模型对实体空间位置的感知完全依赖于输入的 Semantic ID。为彻底根除物理空间的坍塌错乱，本文摒弃了利用神经网络模糊压缩位置信息的方案。对于给定的 POI 经纬度坐标 $(lat, lon)$，直接调用 Geohash 算法生成固定精度的空间散列编码。
-为便于大模型学习空间的层级递进关系，本文将生成的 Geohash 字符串拆分为多个 Token 作为 ID 的前缀序列。例如，将长度为 6 的散列值 \texttt{dr5rev} 拆分为 $\langle geo\_dr5 \rangle \langle geo\_rev \rangle$。这一前缀构成了 POI 绝对物理位置的刚性约束。
+GNPR-SID 是一种面向生成式 Next POI 推荐任务的方法，其整体框架可以划分为两个核心组件：Semantic ID Construction 模块与 Generative POI Recommendation 模块。前者负责为每个 POI 学习具有语义结构的离散表示，后者则负责利用这些语义 ID 对用户下一步可能访问的兴趣点进行生成式预测。该框架的核心思想是：将传统推荐系统中难以建模的离散 POI ID 替换为具有层次结构和语义相似性的离散 token 序列，使大语言模型能够在统一的 token 空间中学习用户历史行为与目标 POI 之间的映射关系。
 
-\section{柔性协同语义后缀编码}
-在剥离了地理位置特征后，本文为 RQ-VAE 模型进行了有效“减负”。重构后的 POI 输入特征向量 $\mathbf{p}_{sem}$ 仅由类别分布（Category）、时间属性（Time slots）以及最频繁访客的共现信号（Co-visitation patterns）拼接而成。
-将其输入浅层 RQ-VAE 模型进行特征压缩，最终生成形如 $\langle sem\_14 \rangle \langle sem\_05 \rangle$ 的语义后缀。在该机制下，若不同 POI 发生了码本碰撞，则代表它们在“用户偏好与业务属性”上高度同构（例如同为早晨热门的咖啡厅），由于它们已被不同的刚性地理前缀区分，此类语义碰撞不仅无害，反而有助于 LLM 进行泛化推荐。
-
-\section{混合ID序列组织与微调指令构建}
-结合空间前缀与语义后缀，一个 POI 的完整双轨制 ID 序列被定义为：
+在 Semantic ID Construction 模块中，GNPR-SID 首先基于 POI 的多源属性构造连续表示。原始方法将 POI 的语义信息和协同信息进行联合建模，主要整合了四类特征。第一类是基本类别信息，用于描述该 POI 的语义属性；第二类是位置相关信息，原方法将经纬度通过 Google Maps 的 Plus Codes 转换为区域级地理编码，用于提供粗粒度的区域位置特征；第三类是时间信号，通过历史访问时间映射到离散时间槽，以反映 POI 的时间活跃模式；第四类是用户协同信号，包括最频繁访问用户以及共访问模式等，用于从行为协同角度增强 POI 表示。将上述特征分别表示为 $c$、$r$、$t$ 和 $c_u$，则原始 GNPR-SID 将其拼接形成 POI 的连续表示：
 \begin{equation}
-    \text{ID}_{POI} = [\langle geo\_prefix \rangle, \langle geo\_suffix \rangle, \langle sem\_layer1 \rangle, \langle sem\_layer2 \rangle]
+p_e = \mathrm{concat}(c, r, t, c_u).
 \end{equation}
 
-在数据构建阶段，采用滑动窗口（Sliding Window）方法，严格按照时间先后顺序截取用户的历史访问记录以防止数据泄露（Data Leakage）。将用户的历史轨迹序列转化为自然语言指令（Prompt），格式如下：
-\begin{quotation}
-    User visited: $\langle geo\_dr7 \rangle \langle geo\_2hd \rangle \langle sem\_14 \rangle \langle sem\_05 \rangle$ at 2012-07-08 13:47, ... When 2012-11-06 17:07 user is likely to visit:
-\end{quotation}
+在获得 POI 的连续表示 $p_e$ 后，GNPR-SID 采用 RQ-VAE 对其进行多级残差量化，将连续表示映射为离散语义标识 SID。设模型包含 $L$ 层量化码本，则每个 POI 在各层码本中对应一个 codeword index，最终 SID 可表示为
+\begin{equation}
+SID = [\mathrm{index}(e^{(1)}), \mathrm{index}(e^{(2)}), \dots, \mathrm{index}(e^{(L)})].
+\end{equation}
+由于残差量化具有从粗到细逐层编码的特性，语义相似的 POI 往往会共享更长的 SID 前缀。这种层次化离散表示方式为后续生成式模型提供了更适合学习的目标结构。当不同 POI 映射到相同 SID 时，原始方法还会增加额外维度以缓解 collision 问题。
 
-\section{基于 LLaMA-3-8B 的两段式生成推理}
-将构建好的时序指令集输入 LLaMA-3-8B 进行 LoRA 监督微调。在推理阶段，由于双轨制 ID 的巧妙设计，大语言模型展现出了符合人类决策直觉的“两段式”推理逻辑：首先根据历史轨迹的时空转移规律，自回归地生成目标商圈的地理网格 Token；随后，基于用户的长程兴趣偏好，在预测的网格内生成具体的语义属性 Token，最终精准命中下一个目标 POI。
+为了学习高质量的离散语义表示，GNPR-SID 通过联合优化重建损失、量化损失和多样性损失对 RQ-VAE 进行训练，其总体目标函数可表示为
+\begin{equation}
+L_{total} = L_{recon} + \mu L_{quant} + \lambda L_{div},
+\end{equation}
+其中，$L_{recon}$ 用于约束解码器能够从量化表示中恢复原始输入特征，$L_{quant}$ 用于优化编码器输出与码本向量之间的匹配关系并稳定量化过程，$L_{div}$ 则用于提高码本使用的多样性，避免过多样本集中映射到少量 codeword 上。
 
+在 Generative POI Recommendation 模块中，GNPR-SID 将用户历史访问序列转换为结构化文本提示，并通过 supervised fine-tuning 的方式微调大语言模型，使模型能够根据历史行为序列生成目标 POI 的 SID。设用户 $u$ 的历史访问序列为
+\begin{equation}
+H_u = \{(p_1,t_1),(p_2,t_2),\dots,(p_n,t_n)\},
+\end{equation}
+其中 $p_i$ 为第 $i$ 次访问的 POI，$t_i$ 为对应时间戳。原始方法首先将每个 POI 替换为其对应的 SID token，再与访问时间一起组织为输入提示。其输入形式通常可以表示为：
+\begin{quote}
+\small
+\texttt{user\_<uid> visited: <SID> at [time], ..., visited <SID> at [time]. When [time] user\_<uid> is likely to visit:}
+\end{quote}
+输出目标则为下一兴趣点对应的 SID 序列。通过这种方式，GNPR-SID 将 Next POI 推荐任务重构为一个条件生成问题，并在原论文中基于 LLaMA3-8B 等大语言模型进行微调训练。
 
-% \chapter{\LaTeX 模板配置与使用}
+从整体上看，GNPR-SID 的优势主要在于利用层次化离散语义表示替代随机 POI ID，使生成式模型能够更自然地学习 POI 之间的语义相似性及用户访问模式。然而，该方法对地理信息的利用仍然偏弱。虽然原始方法在 Semantic ID Construction 阶段考虑了 region-based code 等位置特征，但其空间信息仍然较粗粒度，且未与语义表示形成更深层次的耦合。这也为本文进一步改进提供了空间。
 
+\section{问题分析与地理信息引入思路}
+\label{sec:problem_analysis}
 
-% \label{cha:sysu-thesis-latex-install-guide}
+POI 推荐任务与一般序列推荐任务的重要区别在于，POI 天然携带显著的空间属性。用户下一步访问的地点并不仅由历史兴趣偏好决定，还受到当前位置、活动半径、区域可达性以及城市空间结构的影响。因此，如果离散语义标识仅由类别、时间和协同信号等特征学习得到，而缺乏对真实地理空间关系的充分建模，那么所得 SID 对 POI 的表达能力仍然是不完整的。
 
-% 本部分内容将让你能够通过本\LaTeX 模板生成一份可用的pdf，并为后面修改源码撰写毕设做准备。
+在 GNPR-SID 原始框架中，POI 的空间信息主要通过 region-based code 以较为粗糙的方式加入 POI 连续表示。这种做法能够提供一定区域级别的空间先验，但仍存在两个问题。首先，region code 更接近一种符号化区域标签，其表达能力有限，难以反映 POI 间更加细粒度的地理差异。其次，这种地理信息与 POI 语义表示之间更多是简单拼接关系，而未在表示学习过程中形成更深层次的耦合。因此，最终学得的 SID 往往仍以语义信息为主，对空间分布模式的刻画不够充分。
 
-% 首先，我们会展示最简单的方法：直接使用overleaf进行编写。然后，我们整理了不同环境下\LaTeX 环境的配置指南与不同写作工具的配置技巧，方便各位同学使用本\LaTeX 模板。最后，我们说明了如何开始编写自己的毕业论文（设计）。
+针对这一问题，本文的核心思路是：通过更合理的方式让大语言模型及其上游表示学习模块理解 POI 隐含的地理信息，尤其是类别名称与真实地理位置之间的联合关系。围绕这一目标，本文先后考虑了显式注入与隐式注入两类方案。
 
+显式注入方案的基本思想是直接优化 Generative POI Recommendation 模块，即在用户历史行为序列构造阶段，将地理信息以显式 token 的形式直接注入大语言模型的提示词中。具体而言，可以利用 Geohash 等地理编码方式将 POI 和用户的位置转换为统一的地理 token 表示，再与 SID 一同构成输入或输出目标。这样做的直观动机在于，希望模型在生成目标 POI SID 的同时，也能显式感知甚至生成对应的地理标识，从而强化空间信息利用。然而，实验过程中发现，该方案虽然从形式上看加强了地理信息暴露，但也显著增加了输出序列长度和生成复杂度。模型不仅要预测下一个 POI 的语义标识，还要同时处理额外的地理 token，导致训练与推理开销明显增加，推理速度甚至接近翻倍。同时，地理 token 与 SID 并列作为输出目标时，模型面临更大的建模压力，反而可能削弱对核心 SID 预测任务的学习效果，最终表现为准确率提升有限甚至下降。
 
-% \section{使用Overleaf编写毕设}
+与显式注入方案相比，本文进一步发现，将地理信息隐式注入 Semantic ID Construction 模块通常能够取得更好的效果。其核心思想是：不要求大语言模型显式生成地理标识，而是让地理信息在 POI 表示学习阶段直接参与连续表示构造，从而影响最终学得的 SID。这样一来，模型在输出阶段仍只需预测统一的 SID 序列，既避免了输出空间膨胀，又能够使地理信息真实地融入离散语义表示中。基于这一认识，本文最终选择通过 GeoPE 与文本编码器构造地理增强表示，并将其输入 RQ-VAE 学习地理增强 SID。
 
-% Overleaf\footnote{网址可见\url{https://www.overleaf.com/}}是一个在线的Latex文档协作平台。我们不需要配置任何环境，便能够在上面直接使用本模板进行写作。操作步骤如下：
+\section{显式地理信息注入方案及其局限性}
+\label{sec:explicit_geo_attempt}
 
-% 第一步，下载本项目压缩包（从\url{https://github.com/SYSU-SCC/sysu-thesis/releases}处下载即可），注意需要下载zip格式的压缩包。
-% 然后，我们在Overleaf上新建项目，并上传该压缩包，可参考\autoref{fig:overleaf-new-proj}。
+在方法探索初期，本文曾尝试通过显式方式将地理信息注入 Generative POI Recommendation 模块。该方案的基本出发点是：既然 GNPR-SID 最终通过大语言模型生成下一兴趣点的 SID，那么可以进一步将地理信息显式组织为 token，并直接加入输入提示词，甚至将其作为输出目标的一部分共同生成。为了统一表示 POI 与用户的位置，本文考虑过采用 Geohash 编码，将经纬度映射为离散地理串，再将其嵌入到用户访问历史和目标预测中。
 
+在这一方案下，历史序列中的每个 POI 不再仅被表示为对应的 SID token，而是会进一步附加其地理编码。例如，在原始输入模板
+\begin{quote}
+\small
+\texttt{user\_<uid> visited: <SID> at [time], ..., visited <SID> at [time].}
+\end{quote}
+的基础上，可以扩展为同时包含语义 token 和地理 token 的形式。对应地，模型输出也可以被设计为目标 POI 的“地理 token + SID token”联合结果。这样设计的优点在于，大语言模型可以在显式可见的 token 空间中直接学习 POI 的空间结构和区域相似性，从形式上更符合“地理信息参与生成”的直觉。
 
-% \begin{figure}[h]
-% 	\centering
-% 	\includegraphics[width=0.2\textwidth]{image/chap03/overleaf-create-proj.jpg}
-% 	\includegraphics[width=0.7\textwidth]{image/chap03/overleaf-upload-proj.jpg}
-% 	\caption{在Overleaf上创建并上传压缩包。}
-% 	\label{fig:overleaf-new-proj}
-% \end{figure}
+然而，实际实验表明，该方案存在明显局限。首先，地理 token 的显式加入会直接增加输入与输出序列长度。对于生成式模型而言，序列长度增加意味着自回归解码步骤增加，从而带来更高的训练与推理开销。尤其在 Next POI 推荐任务中，历史序列本身已经包含多个时间步访问记录，若每个 POI 都进一步附加地理编码，则输入会显著变长，而输出目标也会因联合生成地理 token 而变得更复杂。其次，地理 token 和 SID token 并列出现在输出端时，模型需要同时学习空间预测与语义预测两个子任务，这使训练目标更为分散。当地理信息不能有效帮助 SID 判别时，这种联合输出反而会稀释模型对核心预测目标的关注，导致准确率下降。
 
-% 第二步，在Overleaf的菜单中调整编译工具为\texttt{xelatex}，可参考\autoref{fig:overleaf-config}。
+从实验观察来看，显式注入方案的一个重要问题在于：地理信息虽然被“看见”了，但未必真正转化为对核心 SID 预测的有效帮助。也就是说，模型可能能够学习一定程度的地理 token 模式，却无法将这种空间模式进一步转化为对下一个 POI 语义标识的判别能力。与此同时，地理 token 还增加了输出难度和推理复杂度，使整体收益不明显。因此，本文最终没有采用将地理信息直接并入输出目标的方式，而是转向更强调“通过表示学习隐式注入地理信息”的方案。
 
-% \begin{figure}[h]
-% 	\centering
-% 	\includegraphics[width=0.6\textwidth]{image/chap03/overleaf-config.jpg}
-% 	\caption{在Overleaf上调整编译工具}
-% 	\label{fig:overleaf-config}
-% \end{figure}
+\section{基于 GeoPE 的隐式地理增强表示}
+\label{sec:implicit_geope}
 
+与显式注入方案相比，隐式注入方案更关注在连续表示层面建模地理信息，并通过这种连续表示影响离散 SID 的学习结果。本文借鉴了地理增强表示构造的相关思想，在 POI 表示学习阶段引入 GeoPE（Geographical Positional Encoding）机制，使经纬度信息能够以结构化方式隐式保存在潜在表示空间中。
 
-% 第三步，点击编译，得到本pdf，可以开始修改pdf了！最终可见\autoref{fig:overleaf-example}。
+设某一 POI 的文本属性为 $A_p$，在本文当前数据条件下，$A_p$ 主要对应于类别名称信息。由于数据集中缺少更丰富的文本描述，例如 POI 标题、地址或评论等，因此本文采用轻量级文本编码器对类别名称进行语义编码。在具体实现中，本文使用预训练模型 \texttt{all-MiniLM-L6-v2} 对类别文本进行编码，得到基础 POI 嵌入：
+\begin{equation}
+x_p = f_{text}(A_p),
+\end{equation}
+其中，$x_p \in \mathbb{R}^{D}$ 为文本编码器输出的连续表示。该模型输出维度约为 384 维，能够在较低计算成本下提供稳定的类别语义向量表示。之所以不采用更大规模的文本模型，是因为本文所使用的数据集中 POI 文本属性较为有限，仅类别名称本身不足以支撑复杂的大模型语义建模；相比之下，轻量文本编码器更符合数据规模与计算成本的平衡要求。
 
+在获得基础语义表示 $x_p$ 后，本文进一步考虑如何将地理坐标信息注入该表示。GeoPE 的核心思想是，不直接将经纬度作为附加数值简单拼接，而是通过 POI 相对于若干参考点的方向关系，对嵌入向量进行旋转变换，从而使不同地理位置的 POI 在潜在表示空间中产生系统性差异。
 
-% \begin{figure}[h]
-% 	\centering
-% 	\includegraphics[width=0.9\textwidth]{image/chap03/overleaf-example.jpg}
-% 	\caption{Overleaf使用例子}
-% 	\label{fig:overleaf-example}
-% \end{figure}
+具体而言，首先基于所有 POI 的地理分布，通过 K-Means 聚类得到 $\Omega$ 个参考点：
+\begin{equation}
+R=\{R_1,R_2,\dots,R_\Omega\}.
+\end{equation}
+每个参考点可视为一个区域密度中心，用于刻画整个城市空间中的若干典型区域。对于任意 POI $p$ 和参考点 $R_\omega$，计算二者之间的方位角
+\begin{equation}
+\theta_{p,\omega},
+\end{equation}
+该角度用于表示 POI 相对于参考点的方向关系。由于一个二维坐标点相对多个参考点的角度关系在几何上携带了充分的位置信息，因此这些角度可以被看作对真实地理位置的一种隐式编码。
 
+随后，将基础嵌入 $x_p$ 划分为 $\Omega$ 个子段，每个子段对应一个参考点。对于第 $\omega$ 个子段中的相邻维度对，引入由方位角 $\theta_{p,\omega}$ 控制的二维旋转变换。设该子段中某一对相邻维度为 $(x_{2i}, x_{2i+1})$，则其旋转结果可表示为
+\begin{equation}
+\begin{bmatrix}
+x'_{2i} \\
+x'_{2i+1}
+\end{bmatrix}
+=
+\begin{bmatrix}
+\cos\theta_{p,\omega} & -\sin\theta_{p,\omega} \\
+\sin\theta_{p,\omega} & \cos\theta_{p,\omega}
+\end{bmatrix}
+\begin{bmatrix}
+x_{2i} \\
+x_{2i+1}
+\end{bmatrix}.
+\end{equation}
+对所有子段完成旋转后，再将其拼接得到最终的地理增强表示
+\begin{equation}
+x'_p = \mathrm{GeoPE}(x_p, l_p),
+\end{equation}
+其中 $l_p=(lat_p, lon_p)$ 表示 POI 的经纬度坐标。
 
+通过上述方式，原本仅包含类别语义的基础嵌入 $x_p$ 被映射为同时包含语义属性与空间属性的增强表示 $x'_p$。与直接拼接经纬度相比，GeoPE 更强调通过变换方式将地理信息注入潜在空间，使空间差异成为连续表示内部结构的一部分。这种方式的优势在于：不同地理位置的 POI 即便属于同一类别，也会因相对参考点角度不同而得到不同的旋转结果，从而使模型能够在连续表示层面对同类异地 POI 进行更细致的区分。
 
-% \section{编译环境配置}
+\section{基于地理增强表示的 SID 学习}
+\label{sec:geo_sid_learning}
 
-% 编译环境配置相对来说比较简单，下载Tex Live2020并如同一般的程序一样安装即可。
+在获得地理增强表示 $x'_p$ 后，本文将其作为 RQ-VAE 的输入，用于学习地理增强的离散语义标识 SID。与原始 GNPR-SID 中使用
+\begin{equation}
+p_e = \mathrm{concat}(c,r,t,c_u)
+\end{equation}
+作为输入不同，本文更加关注 POI 静态属性的地理--语义联合表达，因此采用由文本编码器与 GeoPE 共同构造的连续表示替代原始类别与区域文本输入。这样做的目标在于使后续量化过程能够直接作用于包含空间信息的潜在表示，从而使学得的 SID 更具地理判别能力。
 
-% \subsection{编译环境配置：Window篇}
+设编码器输出的潜在表示为
+\begin{equation}
+z_e = Enc(x'_p),
+\end{equation}
+则 RQ-VAE 通过多级残差量化逐层逼近该表示，并在每一层选择与当前残差最接近的 codeword。若模型包含 $L$ 层码本，则每个 POI 最终对应一个由多级索引组成的离散表示：
+\begin{equation}
+SID(p)=[s_1,s_2,\dots,s_L].
+\end{equation}
+由于输入表示 $x'_p$ 中已经隐式融入了地理信息，因此该 SID 不再是单纯意义上的语义 ID，而是一种包含空间感知能力的离散语义标识。
 
-% 在\url{https://mirrors.tuna.tsinghua.edu.cn/CTAN/systems/texlive/Images/}上下载Tex Live2020并参考教程\footnote{可以参考\url{https://zhuanlan.zhihu.com/p/58811994}}安装即可。
+本文仍然采用重建损失、量化损失与多样性损失共同优化 RQ-VAE，其总体损失形式可写为
+\begin{equation}
+L_{total}=L_{recon}+\mu L_{quant}+\lambda L_{div}.
+\end{equation}
+其中，$L_{recon}$ 用于保证量化后的表示仍能重构原始输入特征，$L_{quant}$ 用于稳定编码器输出与码本向量之间的映射关系，$L_{div}$ 用于鼓励码本利用更加均衡。通过该目标函数优化，模型能够逐步学习一组既保留语义结构又反映空间差异的离散标识。
 
-% \subsection{编译环境配置：Linux篇}
+需要强调的是，本文方法并不要求模型显式生成地理编码，而是让地理信息通过连续表示构造与量化学习过程隐式地体现在 SID 中。这种设计的核心优势在于：输出阶段仍然保持统一的 SID 预测形式，不会因引入额外的地理 token 而显著增加生成复杂度；与此同时，SID 的学习结果又能够受益于地理增强表示，从而在不改变生成任务形式的前提下提升 POI 表示能力。
 
-% 在\url{https://mirrors.tuna.tsinghua.edu.cn/CTAN/systems/texlive/Images/}上下载Tex Live2020并参考教程\footnote{可以参考\url{https://zhuanlan.zhihu.com/p/55894177}}安装即可。
+\section{地理增强 SID 在生成式 POI 推荐中的应用}
+\label{sec:geo_sid_application}
 
+在完成地理增强 SID 学习后，本文沿用 GNPR-SID 的生成式推荐框架，将每个 POI 对应的 SID 组织为结构化 token 序列，并用于构造用户历史访问序列的输入提示。设某一 POI 的 SID 为
+\begin{equation}
+SID(p)=[s_1,s_2,\dots,s_L],
+\end{equation}
+则可进一步映射为
+\begin{equation}
+T(p)=\langle a_{s_1}\rangle \langle b_{s_2}\rangle \cdots \langle l_{s_L}\rangle.
+\end{equation}
 
-% \subsection{编译环境配置：MacOS篇}
+对于用户 $u$ 的历史访问序列
+\begin{equation}
+H_u=\{(p_1,t_1),(p_2,t_2),\dots,(p_n,t_n)\},
+\end{equation}
+本文将其组织为如下形式的输入提示：
+\begin{quote}
+\small
+\texttt{user\_<uid> visited: <SID> at [time], ..., visited <SID> at [time]. When [time] user\_<uid> is likely to visit:}
+\end{quote}
+与原始 GNPR-SID 的不同之处在于，这里的 \texttt{<SID>} 不再仅来自类别、区域与协同特征学习得到的语义 ID，而是来源于地理增强表示 $x'_p$ 经 RQ-VAE 学习得到的地理增强 SID。因此，尽管生成式模型在输出端仍只预测统一的 SID 序列，但其预测目标本身已经隐含了更多空间信息。
 
-% 在MacOS上配置Latex的环境，这里我们使用的是MacTex。
+在训练阶段，本文采用 supervised fine-tuning 的方式对大语言模型进行微调，使其根据用户历史访问记录和目标时间上下文生成下一 POI 的 SID。在预测阶段，模型输出的 SID 再映射回对应 POI，从而完成 Next POI 推荐任务。
 
-% \begin{enumerate}
-% 	\item \url{https://www.tug.org/mactex/}下载MacTex安装。
-% 	\item 安装步骤：不详细展开，按照图形界面点击即可, 傻瓜式安装。
-% \end{enumerate}
+\section{本章小结}
+\label{sec:method_summary}
 
-% TIPS：MacTex文件比较大，有2G多，介意的话可以选择MacTex\_Basic包，只有100M以内，但是如果安装MacTex\_Basic，后期可能会遇到各种缺包的问题。
+本章围绕本文提出的基于地理信息增强的 GNPR-SID 方法进行了详细介绍。首先，对 GNPR-SID 原始框架进行了梳理，说明其由 Semantic ID Construction 和 Generative POI Recommendation 两部分组成。随后，分析了原始方法在地理信息建模方面的不足，并对显式注入地理信息的方案及其局限进行了讨论。基于实验现象和方法分析，本文最终选择在 Semantic ID Construction 阶段隐式注入地理信息，通过轻量文本编码器和 GeoPE 构造地理增强表示，并将其输入 RQ-VAE 学习地理增强 SID。最后，说明了该 SID 如何在后续生成式 POI 推荐模型中使用。
 
-
-% 安装完成之后，可以简单测试一下安装是否成功。如可以查看Texshop应用是否安装好，或者在命令行测试一下\texttt{xelatex}命令是否可用。
-
-% \section{写作环境配置}
-
-% 不同的写作工具对应不同的写作环境。这里我们给出几个工具的配置例子以供参考。
-
-% \subsection{模板编译流程}
-
-% 由于\LaTeX 的限制，本模板需要经过四次编译才能生成完整的论文：
-
-% \begin{enumerate}
-% 	\item 先使用xelatex编译一次
-% 	\item 再使用bibtex编译一次
-% 	\item 然后使用xelatex编译两次
-% \end{enumerate}
-
-% 本编译流程已经写在Makefile中，修改模板源码后只需要执行\texttt{make main}即可按照该流程进行编译并生成最终的pdf。
-
-
-
-% \subsection{写作环境配置：Visual Studio Code}
-
-% Visual Studio Code是微软公司推出的轻量代码编辑器，我们可以做一些简单的配置，便可以用该编辑器修改我们的\LaTeX 模板，并实现一键编译。
-
-% \begin{enumerate}
-% 	\item 安装 Visual Studio Code。
-% 	\item 安装 LaTeX Workshop 插件。
-% \end{enumerate}
-
-% 本项目的\texttt{.vscode/setting.json}下已经包含了与前面所述编译流程相同的配置。正常配置下，每次修改模板源码后按下保存（Ctrl+S），就能够自动进行编译产生pdf。效果图如\autoref{fig:vscode-example}所示。
-
-
-% \begin{figure}[h]
-% 	\centering
-% 	\includegraphics[width=\linewidth]{image/chap03/vscode-example.png}
-% 	\caption{vscode配置好后的样例}
-% 	\label{fig:vscode-example}
-% \end{figure}
-
-
-% \section{如何开始写毕业论文（设计）}
-
-% 首先将所有个人信息，包括学号、姓名、专业、论文题目等，在\texttt{./docs/info.tex}中逐项进行更新。
-
-% 然后我们再编辑\texttt{./docs/abstract.tex}补充论文摘要。
-
-% 到了论文主体部分，我们可以自行编辑\texttt{./docs/chap01.tex}，\texttt{./docs/chap02.tex}等文件进行编辑。如果章数不够，可以自行修改\texttt{main.tex}增加新的章节。
-
-% 当论文主体编写完成后，我们再编辑\texttt{./docs/ack.tex}作为论文致谢。
-
-
-% % 首先将个人信息写到\texttt{./docs/info.tex}中。
+与直接生成地理标识相比，本文方法更强调让地理信息影响 SID 的学习结果，而不是将其作为额外输出目标。这一设计既保持了 GNPR-SID 原有生成式推荐框架的统一性，又提升了离散语义表示的空间感知能力，为后续实验验证提供了方法基础。
