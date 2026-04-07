@@ -1,0 +1,223 @@
+\section{Methodology}
+\label{sec:meth}
+
+The overall framework of \model is presented in Figure~\ref{fig:overall-arch}. 
+The framework consists of two main modules: (1) the \textbf{semantic ID construction} module maps each POI to a semantic ID (SID) using the codebook quantization, and (2) the \textbf{generative POI recommendation} module fine-tunes an LLM to generate the next POI which leverages the SID as the representation of POI.
+
+\subsection{Semantic ID Construction}
+\label{sec:SIDs}
+
+To map the POI features to the SID, we first construct a semantic codebook, which is an autoencoder framework to encode the POI dense representation into a sparse space and then reconstruct the POI dense representation.
+A well-designed SID representation enhances the performance of subsequent LLM-based recommendation models by capturing semantic correlations between POIs. 
+Specifically, an effective SID should exhibit three key characteristics:
+(i) \textbf{Semantic Richness}: It should encapsulate significant semantic information of the POI.
+(ii) \textbf{Semantic Similarity}: POIs with similar semantics should possess similar SIDs.
+(iii) \textbf{Uniqueness}: Distinct POIs should have unique SIDs to avoid conflicts.
+
+\subsubsection{POI Semantic Representation}
+
+The first challenge in mapping POIs to semantic IDs is effectively capturing and representing their semantic information. 
+Typically, a POI is described by its category and discrete latitude-longitude coordinates. 
+However, these attributes alone are insufficient to capture semantic associations between POIs, and discrete coordinates are suboptimal for model learning. 
+To address this limitation, we propose a comprehensive semantic representation method for POI data. 
+Specifically, we extract four key features to represent a POI: 
+(1) basic category information, 
+(2) location data, 
+(3) temporal signals, and 
+(4) user collaborative signals. 
+This multi-faceted representation enriches the semantic understanding of POIs, enabling more accurate and meaningful mappings.
+
+\paragraph{Spatial Features}
+
+To capture spatial features (\eg, longitude and latitude), we utilize Google Maps' Plus Codes\footnote{\url{https://maps.google.com/pluscodes/}} to convert latitude-longitude coordinates into region-based codes, denoted as $r$, which represent unique numeric region IDs. 
+% Plus Codes offer a scalable and efficient method for encoding any location on Earth. 
+The plus code defines regions by recursively dividing areas using grids of varying sizes and adjusting the code length.
+Compared to directly using geographic coordinates as spatial features, these region-based codes $r$ ensure that nearby POIs are assigned the same Plus Code, allowing the model to share information among spatially adjacent POIs. 
+Such spatial grouping not only simplifies the representation of geographic relationships but also enhances the model to capture regional patterns and dependencies. 
+
+\paragraph{Temporal Signals}
+
+To extract temporal features, we partition a day into 24-time slots and map the historical visit times of each POI to these slots. 
+Time slots with the highest visitation frequency are regarded as the potential operating hours of the POI, represented by $t$.
+The top 10 time slots with the highest visitation frequency are used in our experiments.
+Compared to directly using the raw timestamps, the time slots $t$ provide a more structured and interpretable representation of temporal patterns, which can effectively capture the temporal dynamics of POI visits.
+
+\paragraph{Collaborative Signals}
+
+Additionally, to model user collaborative signals, we analyze the 10 most frequent visitors for each POI and analyze their co-visitation patterns.
+This enables the model to capture latent connections between POIs through shared user behavior.
+The collaborative information is represented by $c_u$, which captures user collaboration signals based on the set of check-in users with shared interaction histories.
+This approach enriches the representation of POIs by incorporating both temporal dynamics and collaborative user behavior.
+
+Finally, we construct one-hot vectors for each of the aforementioned features.
+The semantic representation of a POI, denoted as vector $ p_e $, is defined as:
+\begin{equation}
+\label{eq:poi_representation}
+    p_e = \text{concat}(c, r, t, c_u),
+\end{equation}
+where $ c $ represents the POI category, $ r $ denotes the region, $ t $ corresponds to the operating time slots, and $ c_u $ captures the user collaboration signals based on shared interaction histories. 
+Here, $ \text{concat}(\cdot) $ refers to the concatenation operation. 
+This unified representation $ p_e $ effectively integrates multiple semantic aspects of a POI, enabling a comprehensive and structured input for downstream tasks.
+
+\subsubsection{POI Quantization} 
+
+After constructing the semantic vector representation $ p_e $ for each POI, the next task is to generate an ID for each POI according to the representation $ p_e $, which can represent the correlation between semantically similar POIs. 
+Specifically, semantically similar POIs should share as many prefix codes as possible. 
+For example, the SID <a\_15><b\_2><c\_1> should be more similar to the POI with SID <a\_15><b\_2><c\_9> than to a POI with SID <a\_15><b\_12><c\_2>. 
+This prefix-based similarity mechanism enhances the robustness and interpretability of the SID structure, facilitating more accurate and meaningful recommendations.
+
+Thus, we propose a novel SID quantization approach for POIs. 
+This method ensures that the generated SIDs can represent semantic relationships among POIs, thereby improving the robustness and relevance of recommendations which can be easily adapted to the LLM-based generative model. 
+Specifically, we adopt the Residual Quantized Variational AutoEncoder (RQVAE)~\cite{zeghidour2021soundstream}, a multi-level vector quantizer that leverages residual quantization, to map POI embeddings into SIDs. 
+The RQVAE framework comprises three key modules: an encoder, a residual quantization module, and a decoder. 
+This architecture enables hierarchical and fine-grained quantization, effectively capturing the semantic structure of POIs.
+
+The encoder extracts a deep representation from the input POI vector, which is then used for subsequent quantization:
+\begin{equation}
+    z_e = \text{Encoder}(p_e),
+\end{equation}
+where $ p_e $ is the input POI vector (in Equation~\ref{eq:poi_representation}), and $ z_e $ represents the hidden representation of $ p_e $ obtained through the encoder. 
+The encoder is implemented using fully connected layers, which effectively capture the complex semantic features of the POI. 
+This hidden representation $ z_e $ serves as the foundation for the subsequent quantization process.
+
+First, we define a hierarchical codebook space $B$ consisting of $L$ layers, where each layer contains $K$ codeword vectors. 
+Each codeword vector is represented in a $d$-dimensional space:
+\begin{equation}
+    B^{(l)} = \{e_1, e_2, \dots, e_K\},
+\end{equation}
+where $B^{(l)}$ represents the codebook space of the $l$-th layer, and $e_k \in \mathbb{R}^{K \times d}$ denotes the $k$-th codeword vector in the layer. 
+This hierarchical structure enables multi-level quantization, allowing the model to capture fine-grained semantic relationships among POIs.
+Residual quantization comprises $L$ layers of quantizers (\aka $L$-layer codebook spaces). 
+Each quantizer maps the input vector $r^{(l)}$ to the closest discrete representation (codeword vector) in its corresponding layer:
+\begin{equation}
+{e_k}^{(l)} = \arg\min_{e \in B^{(l)}} \left\|{r}^{(l)}-e \right\|, 
+\end{equation}
+where the  $e_k^{(l)}$  is the quantized codeword at level  $l$  and the  ${r}^{(l)}$ denotes the from the residual quantizer of the $(l-1)$-th layer. 
+These codewords serve as cluster nodes, enabling the indexing of POIs as sequences of codewords with hierarchical information. This cluster process is repeated recursively $L$ times to get a tuple of  $L$ codewords that represent the Semantic ID. This recursive approach approximates the input from a coarse-to-ﬁne granularity. Note that distinct codebook spaces are used for each layer, to attain a more refined representations of indices in a coarse-to-fine manner. 
+The input to each quantizer layer is the residual from the previous layer of quantization:
+\begin{equation}
+{r}^{(l)} = {r}^{(l-1)} - {e_k}^{(l-1)}.
+\end{equation}
+For the first layer ($l=0$), the input residual is initialized as ${r}^{(0)} = z_e$, since $z_e$ serves as the input to the first layer. 
+This hierarchical residual quantization process ensures fine-grained representation and preserves semantic relationships across layers.
+After recursive quantization for a POI, the quantized vector $ \hat{z_e} $ is obtained by summing the codeword vectors from each layer:
+\begin{equation}
+    \hat{z_e} = \sum_{l=1}^{L} {e_k}^{(l)},
+\end{equation}
+where $k \in \{1, \dots, K\}$, and ${e_k}^{(l)}$ represents the codeword vector obtained from the $l$-th layer quantization. 
+To maintain the semantic correlation between POI and SID, we employ the decoder to reconstruct POI vector vector ${z_e}$ from the quantized vector $ \hat{z_e} $:
+\begin{equation}
+    \hat{p_e} = \text{Decoder}(\hat{z_e}),
+\end{equation}
+where the decoder is also implemented by the DNN.
+
+Based on the hierarchical codebook spaces we constructed, we generate the SID by forming a tuple of codeword indices, where each index corresponds to a codeword vector from a distinct layer of the codebook space $B^{(l)}$:
+\begin{equation}\label{equ:build-sid}
+\text{SID} = [\text{index}({e}^{(1)}), \text{index}({e}^{(2)}), \dots, \text{index}({e}^{(L)})],
+\end{equation}
+where ${e}^{(l)} \in B^{(l)}$ represents the codeword vector from the $l$-th layer, and $\text{index}(\cdot)$ retrieves the position of the codeword vector within its respective layer. 
+For instance, a SID of the form <a\_15><b\_2><c\_1>, derived from a three-layer codebook structure,   indicates that the indices <a\_15>, <b\_2>, and <c\_1> correspond to the codeword vectors ${e_{15}}^{(1)}$, ${e_2}^{(2)}$, and ${e_1}^{(3)}$ from the first, second, and third layers, respectively. 
+This structured representation ensures that the SID captures the hierarchical semantic relationships among POIs, facilitating efficient and interpretable recommendations.
+
+To further ensure the uniqueness of SIDs, we address any remaining cases of SID collisions by introducing an additional dimension to the SIDs. 
+Specifically, if multiple POIs are mapped to the same SID, we append a unique identifier to each SID to distinguish them. 
+For example, if two POIs are both mapped to SID <a\_15><b\_2><c\_9>, they will be represented as <a\_15><b\_2><c\_9><d\_0> and <a\_15> <b\_2><c\_9><d\_1>, respectively. 
+This approach guarantees that each POI has a distinct SID, even in cases where semantic collisions occur in the initial quantization process. 
+By incorporating this additional dimension, we enhance the robustness and uniqueness of the SID representation, ensuring that the model can accurately differentiate between POIs with similar semantic features.
+
+\subsubsection{Model Optimization}
+
+\paragraph{Reconstruction Loss}
+
+To optimize the model parameters, we employ the reconstruction loss, which quantifies the distance between the original embedding ${p_e}$ and the reconstructed embedding $\hat{p_e}$:
+\begin{equation}\label{equ:reconstruction-loss}
+\mathcal{L}_{\text{recon}} = \| p_e - \hat{p_e} \|^2 .
+\end{equation}
+
+\paragraph{Quantization Loss}
+
+Additionally, we introduce a quantization loss $\mathcal{L}_{\text{quant}}$ to evaluate the discrepancy between the residuals of the previous layer and the codeword vectors of the current layer. 
+This loss reflects the gap between the input and its quantized representation, ensuring minimal information loss during the quantization process. 
+The quantization loss $\mathcal{L}_{\text{quant}}$ consists of two components: (1) the quantization loss, which measures the distance between the current input vector and the codeword vector, and (2) the commitment loss, which encourages the input vector to align more closely with the codeword vector through an additional constraint term:
+\begin{equation}\label{equ:quant-loss}
+    \mathcal{L}_{\text{quant}} = \sum_{l=1}^{L} \| \text{sg}[\mathbf{r}^{(l-1)}] - \mathbf{e_k}^{(l)} \|^2 + \beta \| \mathbf{r}^{(l-1)} - \text{sg}[\mathbf{e_k}^{(l)}] \|^2 ,
+\end{equation}
+where $\text{sg}$ denotes the stop-gradient operation~\cite{van2017neural}, and $\beta$ is a hyperparameter that controls the strength of the commitment loss. 
+By optimizing $\mathcal{L}_{\text{quant}}$, we ensure that the quantized representation closely approximates the original input, preserving semantic fidelity throughout the quantization process.
+
+\paragraph{Diversity Loss} 
+
+To ensure the uniqueness of SIDs and avoid semantic collisions where multiple POIs map to the same SID, it is crucial to impose constraints during the POI quantization process. 
+Without such constraints, relying solely on the reconstruction loss could lead to a large number of POIs being quantized into a small subset of semantic spaces, compromising the distinctiveness of SIDs. 
+Therefore, we introduce a diversity loss to promote the diversity of codewords within the codebook. 
+This loss encourages the model to capture distinct semantic information and ensures more efficient utilization of the discrete quantization space. 
+We define the diversity loss from two complementary perspectives: codeword utilization constraint and intra-codeword compactness constraint.
+The diversity loss is defined as:
+\begin{equation}
+\mathcal{L}_{\text{div}} = \mathcal{L}_{\text{utilize}} + \sum_{i=1}^{K}\mathcal{L}_{\text{compactness}(k_i)},
+\label{equ:diversity-loss}
+\end{equation}
+Specifically, we aim to encourage POIs within a batch to be evenly mapped across different codeword spaces, thereby maximizing the utilization of the codebook. 
+\begin{equation}
+\mathcal{L}_{\text{utilize}} = \frac{1}{N}\sum_{i=1}^{K}\| count_i-\frac{N}{K} \|,
+\end{equation}
+where $N$ is the total number of data, K is the number of codewords (reflected in Fig\ref{fig:overall-arch} is the number of clusters), $count_i$ denotes the number of vectors now existing in the $i$-th codeword space.
+
+However, optimizing solely for codeword utilization may reduce semantic coherence, forcing semantically dissimilar POIs into the same cluster for distributional balance. 
+To address this, we add a constraint enforcing semantic compactness within each codeword, ensuring vectors mapped to the same codeword are close in embedding space. 
+\begin{equation}
+\mathcal{L}_{\text{compactness}} = \frac{1}{k{(k-1)}} \sum_{i \neq j}^{k} \| e_i - e_j \|^2,
+\end{equation}
+where $\| e_i - e_j \|^2$ measures the distance between codeword vectors $i$ and $j$ in current codeword space, k is the total number of vectors in current codeword space. 
+This dual-constraint design maintains high codebook utilization while preserving semantic consistency.  
+By optimizing the diversity loss, the model maximizes codebook utilization while minimizing intra-codeword variance, thereby reducing semantic collisions and enhancing the discriminative power and uniqueness of the generated SIDs.
+ 
+\paragraph{Total Loss} 
+
+To optimize the model, the total loss is defined as a weighted combination of the reconstruction loss, quantization loss, and diversity loss:
+\begin{equation}
+     \mathcal{L}_{\text{total}} = \mathcal{L}_{\text{recon}} + \mu \mathcal{L}_{\text{quant}} + \lambda \mathcal{L}_{\text{div}},   
+\label{equ:total-loss}
+\end{equation}
+where $\mu \in [0, 1]$ and $\lambda \in [0, 1]$ are hyperparameters that control the contributions of the quantization loss and diversity loss, respectively. 
+This combined loss function ensures that the model not only reconstructs the original POI embeddings accurately but also maintains semantic uniqueness and diversity in the generated SIDs.
+
+\subsection{Generative POI Recommendation}
+\label{fine-tune}
+
+In the previous steps, we outline the process of converting POI data into SIDs. 
+Building on these SIDs, we propose a generative POI recommendation framework based on LLMs. 
+For a given user $u \in U$, we collect their historical check-in POI sequence $P_u = \{p_1, p_2, \dots, p_i\}$ and apply the semantic ID conversion method to transform this sequence into an SID sequence $S_u = \{s_1, s_2, \dots, s_i\}$. 
+This transformation is formalized as:
+\begin{equation}
+    \mathcal{F}: P_u \rightarrow S_u,
+     % \mathcal{F}: P \rightarrow \mathcal{S},
+\end{equation}
+where $\mathcal{F}$ is the mapping function that converts POIs from their random numeric IDs to semantic IDs by our proposed method. 
+
+After learning the SID of each POI, a straightforward approach is to integrate these SIDs into the LLM vocabulary, so that LLM can fulfill the Next POI recommendation task in a generative way. 
+However, these SIDs are still OOV tokens for LLMs, making it necessary to align language tasks with recommendation tasks, thereby bridging the gap and ensuring effective knowledge transfer. 
+To effectively bridge this gap, inspired by~\cite{Geng2022p5,Xue2022human,Zheng2024LCRec}, we initially construct a sequential POI prediction prompt that utilize the SID sequence of the user's historical check-in POIs in chronological order. The sequence of SIDs captures the user's evolving interests and behavioral characteristics over time.
+
+Furthermore, considering that the temporal signals utilized in modeling the SID of a POI only reflect the frequent visitation patterns of the current POI (\ie collective temporal patterns exhibited by users), while the timestamp information in the user’s historical check-in records captures behavior-specific patterns of individual users (\eg habits, long-term preferences, and personalized temporal characteristics), we propose to chronologically concatenate the SIDs of historically visited POIs with their corresponding check-in timestamps. 
+This integration facilitates a more comprehensive modeling of personalized user information and integrates collaborative semantics from both spatial and temporal dimensions.
+
+Specifically, the prompt consists of two main components: (1) the instruction explicitly defines the task for the model, and (2) the input includes a user \textcolor{green}{uid} recent check-in history represented as an \textcolor{blue}{SID sequence}, the associated \textcolor{orange}{check-in times}, and the \textcolor{red}{current time} for prediction.
+\begin{tcolorbox}[colback=yellow!20, colframe=white, coltitle=black, fonttitle=\bfseries, sharp corners]
+ \textbf{Instruction:}  Here is a record of a user's POI accesses, your task is based on the history to predict the POI that the user is likely to access at the specified time.\\
+ \textbf{Input:}  The user\_\textcolor{green}{<uid>} visited: \textcolor{blue}{<SID>} at \textcolor{orange}{[time]}, ..., visited \textcolor{blue}{<SID>} at \textcolor{orange}{[time]}. When \textcolor{red}{[time]} user\_\textcolor{green}{<uid>} is likely to visit:  
+ \label{Prompt}
+\end{tcolorbox}
+This structured prompt enables the LLM to leverage both the semantic relationships encoded in the SIDs and the temporal patterns in the user's check-in history, facilitating accurate and context-aware next POI recommendations.
+In contrast to existing works~\cite{li2024large}, which transforms the next POI recommendation into question-answering pairs in their prompt, we reformulate the problem as a fill-in-the-blank task. 
+This task design enhances the model’s ability to identify and understand fine-grained temporal behaviors within specific time slots.
+
+Since directly prompting an LLM often struggles to accurately capture the fine-grained relationships between historical check-in patterns and future POI recommendations~\cite{wang2023would}, to address this limitation, we fine-tune the LLM for the next POI recommendation task.
+Specifically, we first create a supervised fine-tuning dataset, where we use the constructed prompt as the model input, and the SID of the POI actually visited by the user is used as the ground truth output. 
+This approach enables the model to learn the mapping between historical check-in sequences and future POI visits, significantly enhancing the accuracy and relevance of the generated recommendations.
+
+
+
+
+
+
