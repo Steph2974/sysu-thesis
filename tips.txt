@@ -6,8 +6,8 @@
 如果你使用的是编辑器（如 VS Code, TeXstudio, TeXShop），请连续点击两到三次“编译”按钮（通常是 XeLaTeX）。
 如果你使用的是命令行，可以连续运行两次：
 
-xelatex main.tex
-xelatex main.tex
+xelatex main.tex && xelatex main.tex
+
 latexmk -pdf -xelatex -bibtex -interaction=nonstopmode main.tex
 
 最佳实践： 推荐使用模板内置的自动化构建工具。如果你在 Linux/Mac 上，直接在终端运行 make；或者运行 latexmk -xelatex main.tex，这些工具会自动帮你判断需要编译多少次并自动完成。

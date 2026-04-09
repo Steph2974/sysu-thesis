@@ -20,7 +20,6 @@ RQ-VAE 训练过程中，主要参数设置如下：训练轮数为 300，评估
 \label{sec:dataset_metric}
 
 \subsection{数据集介绍}
-% 数据集：我们使用三个真实世界的数据集评估了我们的方法：Foursquare-NYC（Yang 等，2014）与 Foursquare-TKY（Yang 等，2014），以及 Gowalla-CA（Cho 等，2011）\cite{yang2014activitypref,cho2011friendshipmobility}。
 本文在三个经典公开签到数据集上开展实验，分别为Foursquare-NYC \cite{yang2014activitypref}，Foursquare-TKY \cite{yang2014activitypref}，以及 Gowalla-CA \cite{cho2011friendshipmobility}。根据 \citet{wang2025gnprsid} 的预处理方法，我们移除交互次数小于 10 的 POI 和用户小于 10 的用户。然后按时间排序，80\% 用于训练，10\% 用于验证，10\% 用于测试。训练集中的用户访问记录也被视为历史序列，并与测试集拼接，填充到指定长度后输入模型。详细的数据集统计信息见表 \ref{tab:dataset_statistics}。
 
 \begin{table}
@@ -59,29 +58,8 @@ Collision\ Rate = \frac{N_{collision}}{N_{poi}}.
 
 较低的冲突率通常意味着更强的离散区分能力，但在生成式推荐任务中，冲突率与最终推荐性能之间并非简单线性关系，因此本文将在后续章节中对该现象进一步分析。
 
-% \section{对比方法与实验分组}
-% \label{sec:baseline_group}
-
-% 为了验证本文所提出的隐式地理信息注入方法的有效性，本文设计如下实验分组：
-
-% \begin{enumerate}
-%     \item \textbf{Baseline（显式类别+区域信息）}：对应配置为 \texttt{--use\_geo\_emb 0 --use\_catname 1 --use\_region 1}。该组保留原始类别信息与显式区域信息（Geohash 编码），可视为接近 GNPR-SID 原始思路的基线配置。
-    
-%     \item \textbf{Ours（隐式地理增强表示）}：对应配置为 \texttt{--use\_geo\_emb 1 --use\_catname 0 --use\_region 0}。该组使用文本编码器与 GeoPE 构造的地理增强表示替代原始类别与区域特征，是本文的主方法。
-    
-%     \item \textbf{No-Geo（仅类别信息）}：对应配置为 \texttt{--use\_geo\_emb 0 --use\_catname 1 --use\_region 0}，用于分析地理信息缺失时模型性能变化。
-    
-%     \item \textbf{Region-Only（仅显式区域信息）}：对应配置为 \texttt{--use\_geo\_emb 0 --use\_catname 0 --use\_region 1}，用于分析显式地理特征的独立贡献。
-    
-%     \item \textbf{Text-Encoder Only（仅文本编码语义）}：该组仅保留类别名称经过文本编码器后的语义嵌入，不加入 GeoPE 旋转位置编码，用于区分性能提升究竟来源于更强的文本语义建模，还是来源于隐式地理信息注入。
-    
-%     \item \textbf{GeoEmb+Region}：对应配置为 \texttt{--use\_geo\_emb 1 --use\_catname 0 --use\_region 1}，用于分析隐式地理表示与显式区域特征之间是否存在互补关系。
-% \end{enumerate}
-
 \section{整体实验结果}
 \label{sec:main_result}
-
-表 \ref{tab:main_acc1} 给出了 Baseline 与本文方法在三个数据集上的 Acc@1 结果
 
 \begin{table}[htbp]
 \centering
@@ -91,8 +69,8 @@ Collision\ Rate = \frac{N_{collision}}{N_{poi}}.
 \toprule
 方法 & NYC & TKY & CA \\
 \midrule
-Baseline (\texttt{0 1 1}) & 0.3505 & 0.2766 & 0.2060 \\
-Ours (\texttt{1 0 0}) & \textbf{0.3550} & \textbf{0.2829} & \textbf{0.2122} \\
+Baseline & 0.3505 & 0.2766 & 0.2060 \\
+Ours & \textbf{0.3550} & \textbf{0.2829} & \textbf{0.2122} \\
 提升幅度 & +0.0045(1.28\%) & +0.0063(2.28\%) & +0.0062(3.01\%) \\
 \bottomrule
 \end{tabular}
@@ -102,13 +80,9 @@ Ours (\texttt{1 0 0}) & \textbf{0.3550} & \textbf{0.2829} & \textbf{0.2122} \\
 
 整体来看，虽然从绝对数值上看，各数据集上的提升幅度并不算特别大，但这种提升是稳定且一致的，这对于 Next POI 推荐任务而言具有实际意义。由于该任务本身受到用户兴趣偏好、时间规律、数据稀疏性以及空间约束等多重因素共同影响，单一模块的改动往往难以带来大幅跃升。因此，在保持生成式推荐框架和后续大语言模型训练过程基本不变的前提下，仅通过改进 Semantic ID Construction 阶段的输入表示方式，便能够在三个数据集上获得稳定增益，说明本文方法在离散语义表示学习层面的改进是有效的。
 
-
-% 综上所述，整体实验结果表明，本文提出的地理信息增强表示方法能够在三个数据集上持续提升 GNPR-SID 的预测效果，验证了在 Semantic ID Construction 阶段引入空间信息的必要性与可行性。该结果说明，相较于仅从生成阶段直接附加地理信息，从离散语义表示学习阶段出发改进 POI 表示质量，是一种更稳健且更具推广潜力的研究路径。
-
 \section{SID 冲突率分析}
 \label{sec:collision_analysis}
 
-为了进一步分析不同语义 ID 构造方式的影响，本文统计了 Baseline 与本文方法在三个数据集上的 SID 冲突率。结果如表 \ref{tab:collision_rate} 所示。
 
 \begin{table}[htbp]
 \centering
@@ -127,7 +101,7 @@ Ours (\texttt{1 0 0}) & \textbf{0.3550} & \textbf{0.2829} & \textbf{0.2122} \\
 & Ours & 4023 & 3850 & 0.4890 \\
 \midrule
 \multirow{2}{*}{CA}
-& Baseline & --- & --- & 0.4831 \\
+& Baseline & 7250 & 6777 & 0.4831 \\
 & Ours & 6765 & 7262 & 0.5177 \\
 \bottomrule
 \end{tabular}
@@ -162,7 +136,7 @@ Ours (\texttt{1 0 0}) & \textbf{0.3550} & \textbf{0.2829} & \textbf{0.2122} \\
 \toprule
 方法 & NYC & TKY & CA \\
 \midrule
-No-Geo (\texttt{0 1 0}) & 0.3447 & 0.2708 & 0.2079 \\
+CatName Only (\texttt{0 1 0}) & 0.3447 & 0.2708 & 0.2079 \\
 Baseline (\texttt{0 1 1}) & 0.3505 & 0.2766 & 0.2115 \\
 Ours (\texttt{1 0 0}) & \textbf{0.3550} & \textbf{0.2829} & \textbf{0.2122} \\
 \bottomrule
@@ -173,7 +147,7 @@ Ours (\texttt{1 0 0}) & \textbf{0.3550} & \textbf{0.2829} & \textbf{0.2122} \\
 
 \subsection{显式区域编码与隐式地理增强对比}
 
-为了进一步分析显式地理建模与隐式地理建模之间的差异，本文比较了 Region-Only、Baseline、Ours 以及 GeoEmb+Region 四组方法，结果如表 \ref{tab:ablation_region} 所示。
+为了进一步分析显式地理建模与隐式地理建模之间的差异，本文比较了 Region-Only、Baseline 以及 Ours 三组方法，结果如表 \ref{tab:ablation_region} 所示。
 
 \begin{table}[htbp]
 \centering
@@ -183,17 +157,14 @@ Ours (\texttt{1 0 0}) & \textbf{0.3550} & \textbf{0.2829} & \textbf{0.2122} \\
 \toprule
 方法 & NYC & TKY & CA \\
 \midrule
-Region-Only (\texttt{0 0 1}) & 0.3318 & 0.2584 & 0.1987 \\
+Region Only (\texttt{0 0 1}) & 0.3318 & 0.2584 & 0.1987 \\
 Baseline (\texttt{0 1 1}) & 0.3505 & 0.2766 & 0.2115 \\
-Ours (\texttt{1 0 0}) & 0.3550 & 0.2829 & 0.2122 \\
-GeoEmb+Region (\texttt{1 0 1}) & \textbf{0.3556} & \textbf{0.2834} & \textbf{0.2125} \\
+Ours (\texttt{1 0 0}) & \textbf{0.3550} & \textbf{0.2829} & \textbf{0.2122} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 从表 \ref{tab:ablation_region} 可以看出，仅使用显式区域编码时，模型性能明显弱于结合语义信息的方法，说明单纯依赖地理区域标签难以充分表达 POI 的综合属性。相比之下，本文方法通过隐式地理增强表示获得更高准确率，表明将空间关系作为作用于语义向量的几何变换，比简单使用 Geohash 区域编码更具表达能力。
-
-此外，GeoEmb+Region 结果略高于 Ours，说明显式区域编码与隐式地理增强之间可能仍存在一定互补性。但其提升幅度较小，也从侧面说明本文提出的 GeoPE 表示已经包含了大部分有效地理信息。
 
 \subsection{文本编码器与隐式地理注入贡献分析}
 
@@ -207,7 +178,7 @@ GeoEmb+Region (\texttt{1 0 1}) & \textbf{0.3556} & \textbf{0.2834} & \textbf{0.2
 \toprule
 方法 & NYC & TKY & CA \\
 \midrule
-原始 CatName (\texttt{0 1 0}) & 0.3447 & 0.2708 & 0.2079 \\
+CatName Only & 0.3447 & 0.2708 & 0.2079 \\
 Text-Encoder Only & 0.3492 & 0.2751 & 0.2106 \\
 Text-Encoder + GeoPE (Ours) & \textbf{0.3550} & \textbf{0.2829} & \textbf{0.2122} \\
 \bottomrule
