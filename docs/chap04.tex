@@ -22,7 +22,7 @@ RQ-VAE 训练过程中，主要参数设置如下：训练轮数为 300，评估
 \subsection{数据集介绍}
 本文在三个经典公开签到数据集上开展实验，分别为Foursquare-NYC \cite{yang2014activitypref}，Foursquare-TKY \cite{yang2014activitypref}，以及 Gowalla-CA \cite{cho2011friendshipmobility}。根据 \citet{wang2025gnprsid} 的预处理方法，我们移除交互次数小于 10 的 POI 和用户小于 10 的用户。然后按时间排序，80\% 用于训练，10\% 用于验证，10\% 用于测试。训练集中的用户访问记录也被视为历史序列，并与测试集拼接，填充到指定长度后输入模型。详细的数据集统计信息见表 \ref{tab:dataset_statistics}。
 
-说明数据集中的重要字段：Catname,Region,Lat,Lon,Timestamp。其中，Catname 为 POI 类别名称，Region 为 POI 区域，Lat 为 POI 经度，Lon 为 POI 纬度，Timestamp 为 POI 时间戳。
+说明数据集中的重要字段：Catname,Region,Lat,Lon,Timestamp。其中，Catname 为类别名称，Region 为区域，Lat 为经度，Lon 为纬度，Timestamp 为时间戳。
 
 \begin{table}
   \centering
@@ -81,6 +81,27 @@ Ours & \textbf{0.3550} & \textbf{0.2829} & \textbf{0.2122} \\
 从表 \ref{tab:main_acc1} 可以看出，本文方法在 NYC、TKY 和 CA 三个数据集上均取得了优于 Baseline 的 Acc@1 结果，说明在 GNPR-SID 框架中引入地理信息增强表示能够在不同数据分布和城市场景下稳定提升下一兴趣点预测性能。具体来看，在 NYC 数据集上，Baseline 的 Acc@1 为 0.3505，本文方法提升至 0.3550，绝对提升为 0.0045，相对提升约为 1.28\%。在 TKY 数据集上，模型由 0.2766 提升至 0.2829，绝对提升为 0.0063，相对提升约为 2.28\%。在 CA 数据集上，本文方法同样取得了最明显的相对增益，由 0.2060 提升至 0.2122，绝对提升为 0.0062，相对提升约为 3.01\%。
 
 整体来看，虽然从绝对数值上看，各数据集上的提升幅度并不算特别大，但这种提升是稳定且一致的，这对于 Next POI 推荐任务而言具有实际意义。由于该任务本身受到用户兴趣偏好、时间规律、数据稀疏性以及空间约束等多重因素共同影响，单一模块的改动往往难以带来大幅跃升。因此，在保持生成式推荐框架和后续大语言模型训练过程基本不变的前提下，仅通过改进 Semantic ID Construction 阶段的输入表示方式，便能够在三个数据集上获得稳定增益，说明本文方法在离散语义表示学习层面的改进是有效的。
+
+除了最终预测指标外，模型训练过程的收敛情况也能够反映方法设计的稳定性。为此，图 \ref{fig:loss_compare_nyc} 给出了 Baseline 与本文方法在 NYC 数据集上的训练损失曲线对比。从图中可以看出，两种方法在训练过程中均能够较快收敛，整体下降趋势较为平稳，说明本文方法在引入地理增强表示后并未破坏原有训练过程的稳定性。与此同时，本文方法的损失变化趋势与 Baseline 保持一致，也表明其性能提升并非来源于异常训练波动，而是在稳定优化基础上实现的表示改进。
+
+\begin{figure}[htbp]
+  \centering
+  \begin{subfigure}[b]{0.47\textwidth}
+      \centering
+      \includegraphics[width=\textwidth]{image/chap04/0.png}
+      \caption{Baseline 在 NYC 数据集上的训练损失曲线}
+      \label{fig:loss_baseline_nyc}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[b]{0.47\textwidth}
+      \centering
+      \includegraphics[width=\textwidth]{image/chap04/1.png}
+      \caption{本文方法在 NYC 数据集上的训练损失曲线}
+      \label{fig:loss_ours_nyc}
+  \end{subfigure}
+  \caption{Baseline 与本文方法在 NYC 数据集上的训练损失对比}
+  \label{fig:loss_compare_nyc}
+\end{figure}
 
 \section{SID 冲突率分析}
 \label{sec:collision_analysis}
@@ -195,47 +216,38 @@ Text-Encoder + GeoPE (Ours) & \textbf{0.3550} & \textbf{0.2829} & \textbf{0.2122
 
 这一结果也从实验上支持了本文方法设计动机，即：相比简单将地理信息视为附加特征，更合理的方式是让地理关系直接作用于语义表示空间，从而学习更加适合量化与生成式推荐建模的 POI 表示。
 
-\section{参数敏感性分析}
-\label{sec:param}
+% \section{参数敏感性分析}
+% \label{sec:param}
 
-为了分析 GeoPE 中参考点数量 $\Omega$ 对模型性能的影响，本文在三个数据集上进一步测试了不同参考点设置下的 Acc@1 结果。示例性结果如表 \ref{tab:param_omega} 所示。
+% 为了分析 GeoPE 中参考点数量 $\Omega$ 对模型性能的影响，本文在三个数据集上进一步测试了不同参考点设置下的 Acc@1 结果。示例性结果如表 \ref{tab:param_omega} 所示。
 
-\begin{table}[htbp]
-\centering
-\caption{不同参考点数量 $\Omega$ 下的 Acc@1 结果}
-\label{tab:param_omega}
-\begin{tabular}{lccc}
-\toprule
-$\Omega$ & NYC & TKY & CA \\
-\midrule
-4  & 0.3528 & 0.2804 & 0.2113 \\
-8  & 0.3541 & 0.2817 & 0.2119 \\
-16 & \textbf{0.3550} & \textbf{0.2829} & \textbf{0.2122} \\
-32 & 0.3546 & 0.2821 & 0.2118 \\
-\bottomrule
-\end{tabular}
-\end{table}
+% \begin{table}[htbp]
+% \centering
+% \caption{不同参考点数量 $\Omega$ 下的 Acc@1 结果}
+% \label{tab:param_omega}
+% \begin{tabular}{lccc}
+%   \toprule
+%   $\Omega$ & NYC & TKY & CA \\
+%   \midrule
+%   4  & 0.3526 & 0.2808 & 0.2109 \\
+%   8  & 0.3543 & 0.2824 & 0.2118 \\
+%   16 & \textbf{0.3550} & \textbf{0.2829} & 0.2121 \\
+%   32 & 0.3542 & 0.2826 & \textbf{0.2122} \\
+%   \bottomrule
+%   \end{tabular}
+% \end{table}
 
-从表 \ref{tab:param_omega} 可以看出，随着参考点数量增加，模型性能整体呈现先上升后趋于平稳甚至略有下降的趋势。当参考点数量较少时，GeoPE 对城市空间结构的刻画不够充分；当参考点数量过多时，位置建模粒度虽然更细，但也可能引入噪声，导致表示学习变得不稳定。综合来看，适中的参考点数量能够在空间表达能力与模型稳定性之间取得较好的平衡。
-
-\section{实验结果讨论}
-\label{sec:discussion}
-
-综合整体实验与消融实验结果，可以得到以下几点结论：
-
-\begin{enumerate}
-    \item \textbf{地理信息对 Next POI 推荐具有显著作用。} 当移除地理信息后，模型性能在三个数据集上均有所下降，说明用户的空间迁移规律是决定下一兴趣点的重要因素。
-    
-    \item \textbf{隐式地理信息注入优于显式区域编码。} 相比使用 Geohash 等显式区域标签，本文提出的 GeoPE 方法通过旋转位置编码将地理关系隐式融入语义表示空间，从而获得更优的离散语义 ID 与更高的推荐准确率。
-    
-    \item \textbf{本文方法的提升来源于“更强语义表示 + 空间隐式融合”的共同作用。} 文本编码器本身能够提升类别语义表示质量，而 GeoPE 进一步增强了模型对空间结构的感知能力，两者结合后取得最佳效果。
-    
-    \item \textbf{SID 冲突率提升并未导致推荐性能下降。} 相反，适度的语义聚合可能帮助大语言模型学习更稳定的迁移模式。这表明在生成式 POI 推荐任务中，应综合考察离散表示区分度与序列建模效果，而不能仅以冲突率高低评价 SID 质量。
-\end{enumerate}
+% 从表 \ref{tab:param_omega} 可以看出，随着参考点数量增加，模型性能整体呈现先上升后趋于平稳甚至略有下降的趋势。当参考点数量较少时，GeoPE 对城市空间结构的刻画不够充分；当参考点数量过多时，位置建模粒度虽然更细，但也可能引入噪声，导致表示学习变得不稳定。综合来看，适中的参考点数量能够在空间表达能力与模型稳定性之间取得较好的平衡。
 
 \section{本章小结}
 \label{sec:exp_summary}
 
-本章对本文提出的基于隐式地理信息注入的 GNPR-SID 改进方法进行了实验验证。实验结果表明，本文方法在 NYC、TKY 和 CA 三个数据集上均取得了一定程度的性能提升，验证了隐式地理增强表示在生成式 Next POI 推荐任务中的有效性。进一步的消融实验表明，地理信息本身对推荐任务具有重要作用，而相比显式区域编码，GeoPE 能够以更加自然的方式将空间关系融入语义表示空间，从而生成更具判别性和建模能力的语义 ID。
+本章围绕本文提出的基于隐式地理信息注入的 GNPR-SID 改进方法开展了实验验证，并从整体结果、消融实验以及表示层面的分析多个角度对方法有效性进行了讨论。实验结果表明，在 NYC、TKY 和 CA 三个数据集上，本文方法均取得了稳定的性能提升，说明在 Semantic ID Construction 阶段引入地理增强表示，能够在一定程度上改善 POI 的离散语义表示质量，并进一步提升生成式 Next POI 推荐的预测效果。
 
-同时，本文还分析了 SID 冲突率变化与推荐性能之间的关系，说明在生成式推荐场景下，适度的语义聚合可能有助于提升模型对空间迁移模式的学习能力。总体而言，实验结果支持了本文提出的方法设计动机，并为后续进一步优化 Semantic ID Construction 模块提供了实验依据。
+进一步的消融实验说明，地理信息在 Next POI 推荐任务中确实发挥着重要作用。当移除地理相关信息后，模型在三个数据集上的表现均有所下降，这表明用户下一步访问行为不仅受兴趣偏好影响，也受到明显的空间迁移规律约束。与此同时，与显式区域编码或显式地理 token 注入相比，本文采用的隐式地理增强方式表现更为稳定。其原因在于，GeoPE 并未将地理信息作为额外的输出负担强加给生成模型，而是通过连续表示层面的变换将空间关系融入语义表示之中，使后续 RQ-VAE 学习得到的 SID 在保留语义结构的同时，具备了一定的空间感知能力。
+
+实验还表明，本文方法的性能提升并不单纯来源于更强的文本编码器，而是来自语义表示增强与地理信息隐式融合的共同作用。类别名称经过文本编码后，能够提供比原始符号特征更稳定的语义基础；在此之上，GeoPE 进一步将地理结构引入表示空间，使模型能够更好地区分语义相近但空间位置不同的 POI。因此，本文方法本质上并不是简单地增加了一类特征，而是改进了 POI 表示学习的方式。
+
+此外，本文还对 SID 冲突率与推荐性能之间的关系进行了分析。实验现象表明，SID 冲突率的提升并未直接导致推荐性能下降。相反，在某些情况下，适度的语义聚合反而有助于大语言模型学习更稳定的迁移模式。这说明，在生成式 POI 推荐场景中，对离散表示质量的评价不能仅停留在区分度层面，还需要结合其对后续序列建模任务的实际作用加以综合判断。
+
+总体来看，本章实验结果较为一致地支持了本文的方法设计思路，即相比将地理信息显式加入生成阶段，更有效的方式是在 Semantic ID Construction 阶段将其隐式融入表示学习过程。这样的设计既保持了生成式推荐框架的简洁性，也提升了 POI 离散表示对空间信息的表达能力，为后续进一步优化地理增强语义 ID 学习方法提供了实验依据。
