@@ -6,7 +6,9 @@
 如果你使用的是编辑器（如 VS Code, TeXstudio, TeXShop），请连续点击两到三次“编译”按钮（通常是 XeLaTeX）。
 如果你使用的是命令行，可以连续运行两次：
 
-xelatex main.tex && xelatex main.tex
+xelatex main.tex && xelatex main.tex && latexmk -pdf -xelatex -bibtex -interaction=nonstopmode main.tex
+
+
 latexmk -xelatex -interaction=nonstopmode main.tex
 latexmk -pdf -xelatex -bibtex -interaction=nonstopmode main.tex
 
