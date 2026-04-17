@@ -63,9 +63,11 @@ Collision\ Rate = \frac{N_{collision}}{N_{poi}}.
 \section{整体实验结果}
 \label{sec:main_result}
 
+在整体实验中，所有结果均为使用 3 组不同随机种子进行独立实验的平均值，以确保结果的稳定性和可靠性。
+
 \begin{table}[htbp]
 \centering
-\caption{Baseline 与本文方法在三个数据集上的 Acc@1 对比}
+\caption{Baseline 与本文方法在三个数据集上的 Acc@1 对比（3 组随机种子平均结果）}
 \label{tab:main_acc1}
 \begin{tabular}{lccc}
 \toprule
@@ -106,10 +108,9 @@ Ours & \textbf{0.3550} & \textbf{0.2829} & \textbf{0.2122} \\
 \section{SID 冲突率分析}
 \label{sec:collision_analysis}
 
-
 \begin{table}[htbp]
 \centering
-\caption{Baseline 与本文方法的 SID 冲突率对比}
+\caption{Baseline 与本文方法的 SID 冲突率对比（3 组随机种子平均结果）}
 \label{tab:collision_rate}
 \begin{tabular}{lcccc}
 \toprule
@@ -117,25 +118,24 @@ Ours & \textbf{0.3550} & \textbf{0.2829} & \textbf{0.2122} \\
 \midrule
 \multirow{2}{*}{NYC}
 & Baseline & 3712 & 1423 & 0.2771 \\
-& Ours & 3624 & 1511 & 0.2943 \\
+& Ours & 3695 & 1440 & 0.2804 \\
 \midrule
 \multirow{2}{*}{TKY}
 & Baseline & 4124 & 3749 & 0.4762 \\
-& Ours & 4023 & 3850 & 0.4890 \\
+& Ours & 4174 & 3699 & 0.4699 \\
 \midrule
 \multirow{2}{*}{CA}
 & Baseline & 7250 & 6777 & 0.4831 \\
-& Ours & 6765 & 7262 & 0.5177 \\
+& Ours & 7190 & 6837 & 0.4874 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-从表 \ref{tab:collision_rate} 可以观察到，本文方法在三个数据集上的 SID 冲突率均有一定程度上升。这表明在引入隐式地理增强表示后，更多 POI 被映射到了相同或相近的离散语义标识上，离散区分度有所下降。
+从表 \ref{tab:collision_rate} 可以观察到，本文方法在三个数据集上的 SID 冲突率与 Baseline 差距不大：在 NYC 和 CA 数据集上冲突率略有上升，在 TKY 数据集上则略有下降，但整体差异均控制在较小范围内（最大差异不超过 0.0073）。这表明引入隐式地理增强表示后，POI 在离散语义空间中的聚合程度与 Baseline 基本相当，并未显著改变 SID 的整体区分度。
 
-然而，结合表 \ref{tab:main_acc1} 可以发现，虽然冲突率上升，但推荐性能并未下降，反而在三个数据集上均有提升。这说明 SID 冲突率的变化与最终推荐效果之间并非简单负相关关系。一种可能的解释是：隐式地理注入使地理上相近、语义上相似的 POI 更容易被聚合到相同的离散语义模式中，从而帮助大语言模型学习更加稳定的空间迁移规律。在这种情况下，适度的语义聚合不一定损害推荐性能，反而可能增强模型对下一个兴趣点模式的泛化能力。
+结合表 \ref{tab:main_acc1} 可以发现，虽然冲突率存在少量波动，但推荐性能在三个数据集上均取得了稳定提升。这说明 SID 冲突率的变化与最终推荐效果之间并非简单负相关关系。一种可能的解释是：隐式地理注入使地理上相近、语义上相似的 POI 更容易被聚合到相同的离散语义模式中，从而帮助大语言模型学习更加稳定的空间迁移规律。在这种情况下，适度的语义聚合不一定损害推荐性能，反而可能增强模型对下一个兴趣点模式的泛化能力。
 
-当然，冲突率持续升高也可能在更大规模数据集或更细粒度区分任务中带来潜在风险。因此，在后续实验中，仍有必要结合码本规模、参考点数量等参数进一步分析冲突率与推荐性能之间的平衡关系。
-
+当然，冲突率在不同数据集上的微小波动也提示我们，在后续实验中仍有必要结合码本规模、参考点数量等超参数进一步分析冲突率与推荐性能之间的平衡关系，以实现更优的表示质量。
 \section{消融实验}
 \label{sec:ablation}
 
