@@ -41,5 +41,6 @@
             ],
             "env": {}
         },
-    ]
+    ],
+    "svg.preview.background": "white"
 }
