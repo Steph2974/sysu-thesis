@@ -5,56 +5,45 @@
 
 针对上述问题，本文从地理信息注入方式出发，对原始方法进行分析与改进。本文首先比较了显式地理信息注入与隐式地理信息注入两类方案，发现将地理信息直接并入大语言模型输入或输出会显著增加序列建模复杂度，且对核心 SID 预测任务的帮助有限。因此，本文最终选择在 Semantic ID Construction 阶段引入隐式地理信息注入机制，利用文本编码器与 GeoPE（Geographical Positional Encoding）构造融合语义与空间信息的连续 POI 表示，再结合 RQ-VAE 学习地理增强的语义 ID，从而提升 POI 表示的空间感知能力，并为后续生成式推荐提供更高质量的离散表示。
 
-\section{GNPR-SID 原始框架}
-\label{sec:gnprsid_framework}
+% \section{GNPR-SID 原始框架}
+% \label{sec:gnprsid_framework}
 
-GNPR-SID 是一种面向生成式 Next POI Recommendation 任务的方法，其整体框架由两个核心模块组成，即 Semantic ID Construction 模块与 Generative POI Recommendation 模块。前者负责为每个 POI 学习具有层次结构和语义相似性的离散表示，后者则基于这些离散语义标识，对用户下一步可能访问的兴趣点进行生成式预测。其核心思想是利用语义化、结构化的离散标识替代传统推荐任务中无语义的随机 POI ID，从而使大语言模型能够在统一 token 空间中学习用户历史行为与目标兴趣点之间的映射关系。
+% GNPR-SID 是一种面向生成式 Next POI Recommendation 任务的方法，其整体框架由两个核心模块组成，即 Semantic ID Construction 模块与 Generative POI Recommendation 模块。前者负责为每个 POI 学习具有层次结构和语义相似性的离散表示，后者则基于这些离散语义标识，对用户下一步可能访问的兴趣点进行生成式预测。其核心思想是利用语义化、结构化的离散标识替代传统推荐任务中无语义的随机 POI ID，从而使大语言模型能够在统一 token 空间中学习用户历史行为与目标兴趣点之间的映射关系。
 
-图 \ref{fig:gnprsid_baseline_flow} 给出了 GNPR-SID 在 Baseline 设定下的整体数据流与模块衔接关系，可作为后文公式与符号说明的参照。
+% \subsection{Semantic ID Construction 模块}
 
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=0.92\linewidth]{image/chap03/baseline_flow.pdf}
-  \caption{GNPR-SID Baseline 方法流程图}
-  \label{fig:gnprsid_baseline_flow}
-\end{figure}
+% 在 Semantic ID Construction 模块中，GNPR-SID 首先基于 POI 的多源属性构造连续表示。原始方法主要整合四类特征：类别信息、位置相关信息、时间信息以及用户协同信息。其中，类别信息用于描述 POI 的语义属性；位置相关信息由经纬度转换得到区域级地理编码，用于提供粗粒度的空间先验；时间信息由历史访问时间映射至离散时间槽，用于刻画 POI 的时间活跃模式；用户协同信息则利用高频访问用户及共访问关系来增强 POI 的行为关联表示。设上述四类特征分别记为 $c$、$r$、$t$ 和 $c_u$，则原始 GNPR-SID 中 POI 的连续表示可写为
+% \begin{equation}
+% p_e = \mathrm{concat}(c, r, t, c_u).
+% \end{equation}
 
-\subsection{Semantic ID Construction 模块}
+% 在获得连续表示 $p_e$ 后，GNPR-SID 利用 RQ-VAE（Residual Quantized Variational AutoEncoder）对其进行多级残差量化，将连续空间中的 POI 表示映射为离散语义标识。设模型包含 $L$ 层量化码本，则每个 POI 在各层码本中分别对应一个 codeword index，最终其 Semantic ID 可表示为
+% \begin{equation}
+% SID(p) = [s_1, s_2, \dots, s_L],
+% \end{equation}
+% 其中 $s_l$ 表示第 $l$ 层量化码本中所选中的索引。由于残差量化具有逐层细化表示的特点，语义相近的 POI 倾向于共享更长的 SID 前缀，因此该离散表示天然具有一定的层次结构与相似性表达能力。
 
-在 Semantic ID Construction 模块中，GNPR-SID 首先基于 POI 的多源属性构造连续表示。原始方法主要整合四类特征：类别信息、位置相关信息、时间信息以及用户协同信息。其中，类别信息用于描述 POI 的语义属性；位置相关信息由经纬度转换得到区域级地理编码，用于提供粗粒度的空间先验；时间信息由历史访问时间映射至离散时间槽，用于刻画 POI 的时间活跃模式；用户协同信息则利用高频访问用户及共访问关系来增强 POI 的行为关联表示。设上述四类特征分别记为 $c$、$r$、$t$ 和 $c_u$，则原始 GNPR-SID 中 POI 的连续表示可写为
-\begin{equation}
-\label{eq:gnprsid_pe}
-p_e = \mathrm{concat}(c, r, t, c_u).
-\end{equation}
+% 为了学习高质量的离散语义表示，GNPR-SID 采用联合目标函数对 RQ-VAE 进行训练，其总体损失可表示为
+% \begin{equation}
+% \mathcal{L}_{total} = \mathcal{L}_{recon} + \mu \mathcal{L}_{quant} + \lambda \mathcal{L}_{div},
+% \end{equation}
+% 其中，$\mathcal{L}_{recon}$ 表示重建损失，用于约束量化表示能够恢复原始输入特征；$\mathcal{L}_{quant}$ 表示量化损失，用于优化编码器输出与码本向量之间的匹配关系；$\mathcal{L}_{div}$ 表示多样性损失，用于提升码本使用的均衡性，避免大量样本聚集到少量 codeword 上。
 
-在获得连续表示 $p_e$ 后，GNPR-SID 利用 RQ-VAE（Residual Quantized Variational AutoEncoder）对其进行多级残差量化，将连续空间中的 POI 表示映射为离散语义标识。设模型包含 $L$ 层量化码本，则每个 POI 在各层码本中分别对应一个 codeword index，最终其 Semantic ID 可表示为
-\begin{equation}
-SID(p) = [s_1, s_2, \dots, s_L],
-\end{equation}
-其中 $s_l$ 表示第 $l$ 层量化码本中所选中的索引。由于残差量化具有逐层细化表示的特点，语义相近的 POI 倾向于共享更长的 SID 前缀，因此该离散表示天然具有一定的层次结构与相似性表达能力。
+% \subsection{Generative POI Recommendation 模块}
 
-为了学习高质量的离散语义表示，GNPR-SID 采用联合目标函数对 RQ-VAE 进行训练，其总体损失可表示为
-\begin{equation}
-\label{eq:gnprsid_rq_loss}
-\mathcal{L}_{total} = \mathcal{L}_{recon} + \mu \mathcal{L}_{quant} + \lambda \mathcal{L}_{div},
-\end{equation}
-其中，$\mathcal{L}_{recon}$ 表示重建损失，用于约束量化表示能够恢复原始输入特征；$\mathcal{L}_{quant}$ 表示量化损失，用于优化编码器输出与码本向量之间的匹配关系；$\mathcal{L}_{div}$ 表示多样性损失，用于提升码本使用的均衡性，避免大量样本聚集到少量 codeword 上。
+% 在 Generative POI Recommendation 模块中，GNPR-SID 将用户历史访问序列转化为结构化文本提示，并通过监督微调方式训练大语言模型完成下一兴趣点预测。设用户 $u$ 的历史访问序列为
+% \begin{equation}
+% H_u = \{(p_1,t_1),(p_2,t_2),\dots,(p_n,t_n)\},
+% \end{equation}
+% 其中 $p_i$ 表示第 $i$ 次访问的兴趣点，$t_i$ 表示对应的访问时间。GNPR-SID 首先将每个 POI 替换为其对应的 SID token 序列，并与时间信息共同组织成输入提示。其典型输入形式可表示为：
+% \begin{quote}
+% \small
+% \texttt{user\_<uid> visited: <SID> at [time], ..., visited <SID> at [time]. When [time] user\_<uid> is likely to visit:}
+% \end{quote}
 
-\subsection{Generative POI Recommendation 模块}
+% 模型的输出目标则为下一兴趣点对应的 SID 序列。通过这种方式，GNPR-SID 将传统的 Next POI Recommendation 问题重构为一个条件生成问题，使大语言模型能够在离散语义空间中直接建模用户行为模式与兴趣点转移关系。
 
-在 Generative POI Recommendation 模块中，GNPR-SID 将用户历史访问序列转化为结构化文本提示，并通过监督微调方式训练大语言模型完成下一兴趣点预测。设用户 $u$ 的历史访问序列为
-\begin{equation}
-H_u = \{(p_1,t_1),(p_2,t_2),\dots,(p_n,t_n)\},
-\end{equation}
-其中 $p_i$ 表示第 $i$ 次访问的兴趣点，$t_i$ 表示对应的访问时间。GNPR-SID 首先将每个 POI 替换为其对应的 SID token 序列，并与时间信息共同组织成输入提示。其典型输入形式可表示为：
-\begin{quote}
-\small
-\texttt{user\_<uid> visited: <SID> at [time], ..., visited <SID> at [time]. When [time] user\_<uid> is likely to visit:}
-\end{quote}
-
-模型的输出目标则为下一兴趣点对应的 SID 序列。通过这种方式，GNPR-SID 将传统的 Next POI Recommendation 问题重构为一个条件生成问题，使大语言模型能够在离散语义空间中直接建模用户行为模式与兴趣点转移关系。
-
-总体来看，GNPR-SID 的优势在于利用层次化离散语义表示替代无语义的随机 POI ID，从而增强生成式模型对 POI 语义相似性及行为模式的建模能力。然而，该方法在空间信息建模方面仍存在不足。虽然原始方法引入了区域级地理特征，但其地理建模方式仍偏粗粒度，且尚未与连续语义表示形成更深层次的耦合，这为本文的进一步改进提供了空间。
+% 总体来看，GNPR-SID 的优势在于利用层次化离散语义表示替代无语义的随机 POI ID，从而增强生成式模型对 POI 语义相似性及行为模式的建模能力。然而，该方法在空间信息建模方面仍存在不足。虽然原始方法引入了区域级地理特征，但其地理建模方式仍偏粗粒度，且尚未与连续语义表示形成更深层次的耦合，这为本文的进一步改进提供了空间。
 
 \section{问题分析与方法设计动机}
 \label{sec:problem_analysis}
@@ -160,29 +149,100 @@ x_p' = \mathrm{GeoPE}(x_p, l_p).
 
 通过上述构造，原本仅包含类别语义信息的基础表示 $x_p$ 被映射为同时融合语义信息与空间信息的增强表示 $x_p'$。与直接拼接经纬度或区域编码的方式相比，GeoPE 并不将地理信息作为外部附加特征，而是通过对语义向量内部结构施加几何变换，使空间差异成为潜在表示的一部分。这意味着，即使两个 POI 属于相同类别，只要它们处于不同地理位置，其最终连续表示仍会因相对参考点角度不同而产生差异，从而提升表示的空间判别能力。
 
-\section{地理增强 SID 的学习及其在生成式推荐中的接入}
+\section{基于地理增强表示的语义 ID 学习}
 \label{sec:geo_sid_learning}
 
-在获得地理增强表示 $x_p'$ 后，本文以之取代第 \ref{sec:gnprsid_framework} 节中式 \eqref{eq:gnprsid_pe} 所示的多源显式拼接向量 $p_e$，作为 RQ-VAE 的量化输入；量化结构、层次化码本与残差量化过程与 GNPR-SID 相同，故不再赘述，仅给出与本文记号直接衔接的核心关系。设编码器输出为
+在获得地理增强表示 $x_p'$ 后，本文将其作为 RQ-VAE 的输入，用于学习具备空间感知能力的离散语义标识。与原始 GNPR-SID 采用多源显式特征拼接表示
+\begin{equation}
+p_e = \mathrm{concat}(c, r, t, c_u)
+\end{equation}
+不同，本文更加关注 POI 静态属性中的语义--空间联合表达，因此采用由文本编码器与 GeoPE 构造得到的连续表示 $x_p'$ 作为量化输入。这样做的目的是使后续离散化过程能够直接作用于已经融合地理信息的潜在表示，从而使学习得到的 SID 不仅能够表达语义相似性，也能够反映空间差异。
+
+设编码器对地理增强表示的输出为
 \begin{equation}
 z_p = \mathrm{Enc}(x_p'),
 \end{equation}
-第 $l$ 层码本为 $\mathcal{B}^{(l)}$，残差量化满足 $r_p^{(0)}=z_p$，
+其中，$\mathrm{Enc}(\cdot)$ 表示编码器，它将输入的地理增强表示映射到更适于量化的潜在空间。为了将连续潜在向量离散化，本文在 RQ-VAE 中构造包含 $L$ 层量化码本的层次化离散空间。记第 $l$ 层码本为
 \begin{equation}
-q_p^{(l)}=\arg\min_{e \in \mathcal{B}^{(l)}} \| r_p^{(l-1)}-e \|_2^2,\quad
-r_p^{(l)} = r_p^{(l-1)} - q_p^{(l)},\quad l=1,\dots,L,
+\mathcal{B}^{(l)}=\{e_1^{(l)},e_2^{(l)},\dots,e_K^{(l)}\},
 \end{equation}
-量化向量求和重建 $\hat{z}_p = \sum_{l=1}^{L} q_p^{(l)}$，解码器满足 $\hat{x}_p' = \mathrm{Dec}(\hat{z}_p)$。每层所选 codeword 的索引构成离散语义 ID，形式与第 \ref{sec:gnprsid_framework} 节一致：
+其中 $e_k^{(l)} \in \mathbb{R}^{d}$ 表示第 $l$ 层码本中的第 $k$ 个 codeword，$K$ 表示每层码本的大小。RQ-VAE 采用逐层残差量化的方式逼近潜在表示。首先令初始残差为
 \begin{equation}
-SID(p) = [s_1, s_2, \dots, s_L],\quad s_l=\mathrm{index}(q_p^{(l)}).
+r_p^{(0)} = z_p,
 \end{equation}
-由于 $x_p'$ 已融合 GeoPE 注入的空间信息，上述 SID 在保持「层次前缀相似性」这一 GNPR-SID 性质的同时，对 POI 的地理差异更为敏感。RQ-VAE 训练仍采用式 \eqref{eq:gnprsid_rq_loss} 形式的重建、量化与多样性联合损失；地理信息不显式作为独立 token 输出，而由连续表示与量化过程隐式写入 SID。
+随后在第 $l$ 层码本中选择与当前残差最接近的 codeword：
+\begin{equation}
+q_p^{(l)}=\arg\min_{e \in \mathcal{B}^{(l)}} \| r_p^{(l-1)}-e \|_2^2,
+\end{equation}
+并更新该层后的残差为
+\begin{equation}
+r_p^{(l)} = r_p^{(l-1)} - q_p^{(l)}.
+\end{equation}
 
-在生成式推荐阶段，本文完全沿用第 \ref{sec:gnprsid_framework} 节中的提示构造与监督微调设定：历史序列 $H_u$、提示模板及「下一 SID」生成目标均与 Baseline 一致，区别仅在于各 POI 的 \texttt{<SID>} 来自基于 $x_p'$ 的 RQ-VAE，而非原始多源特征拼接。将 POI 映射为 SID 的函数仍记为 $\mathcal{F}:p\mapsto SID(p)$，多级索引可展开为各层 token 序列，例如
+通过上述递归量化过程，模型能够以由粗到细的方式逐步逼近原始潜在表示：前层码本主要捕获较为粗粒度的全局语义与空间结构，后层码本则进一步补充细粒度差异。因此，若两个 POI 在语义属性和空间位置上较为接近，则其在前几层量化过程中更可能选择相同或相近的 codeword，从而共享更长的 SID 前缀，这也是 Semantic ID 具有层次相似性的重要来源。
+
+在完成 $L$ 层量化后，可将所有层中选中的 codeword 向量求和，得到量化后的潜在表示：
+\begin{equation}
+\hat{z}_p = \sum_{l=1}^{L} q_p^{(l)}.
+\end{equation}
+随后，解码器根据量化表示重建输入向量：
+\begin{equation}
+\hat{x}_p' = \mathrm{Dec}(\hat{z}_p),
+\end{equation}
+其中 $\mathrm{Dec}(\cdot)$ 表示解码器。重建过程的作用在于约束离散化结果尽可能保留原始地理增强表示中的主要语义和空间信息，从而避免量化过程造成过多信息损失。若量化层数为 $L$，则每个 POI 最终对应一个由多级索引组成的离散表示：
+\begin{equation}
+SID(p) = [s_1, s_2, \dots, s_L].
+\end{equation}
+其中 $s_l=\mathrm{index}(q_p^{(l)})$ 表示第 $l$ 层所选 codeword 在对应码本中的索引。可见，最终的 SID 本质上是潜在表示在多层离散码本中的路径编码，而不是一个随机分配的整数编号。
+
+由于输入表示 $x_p'$ 中已经隐式融入了地理信息，因此此处学习得到的 SID 不再是仅由语义属性主导的离散标识，而是一种兼具语义感知与空间感知能力的离散语义 ID。该设计使地理信息在不增加输出复杂度的前提下，直接参与了离散标识的学习过程。
+
+在训练过程中，本文仍采用重建损失、量化损失与多样性损失共同优化 RQ-VAE，其总损失函数可表示为
+\begin{equation}
+\mathcal{L}_{total} = \mathcal{L}_{recon} + \mu \mathcal{L}_{quant} + \lambda \mathcal{L}_{div}.
+\end{equation}
+其中，$\mathcal{L}_{recon}$ 用于保证量化后的表示仍能够保留原始输入中的主要信息；$\mathcal{L}_{quant}$ 用于稳定编码器输出与量化码本之间的映射关系；$\mathcal{L}_{div}$ 用于鼓励码本被更加均衡地使用，防止不同样本过度聚集于少量 codeword 上。
+
+需要说明的是，本文方法并不要求模型显式生成地理标识，而是让地理信息通过连续表示构造和量化学习过程隐式体现在 SID 中。该设计的关键优势在于，一方面保持了生成目标形式的统一性，避免了显式地理 token 带来的输出空间膨胀；另一方面又能够使离散语义标识真实受益于地理增强表示，从而提升后续生成式推荐的表示基础。
+
+\section{地理增强 SID 在生成式 POI 推荐中的应用}
+\label{sec:geo_sid_application}
+
+在完成地理增强 SID 的学习后，本文沿用 GNPR-SID 的生成式推荐框架，将每个 POI 对应的 SID 组织为结构化 token 序列，并用于构造用户历史访问序列的输入提示。设 POI 到语义 ID 的映射函数记为
+\begin{equation}
+\mathcal{F}: p \mapsto SID(p),
+\end{equation}
+则用户历史访问序列中的每个 POI 均可被替换为其对应的 SID token 序列。设某一 POI 的 SID 表示为
+\begin{equation}
+SID(p) = [s_1, s_2, \dots, s_L],
+\end{equation}
+则其对应的 token 表示可记为
 \begin{equation}
 T(p)=\langle a_{s_1}\rangle \langle b_{s_2}\rangle \cdots \langle l_{s_L}\rangle.
 \end{equation}
-据此得到带时间戳的语义 ID 序列后，即可按第 \ref{sec:gnprsid_framework} 节所述方式组织训练样本；推理时仍由预测 SID 查表映射回 POI。本文未改动 GNPR-SID 生成端词表与输出形式，改进集中于 Semantic ID Construction 前端，使空间信息在离散表示学习阶段进入 SID，从而在无需额外地理 token 的前提下提升下一兴趣点预测可用的表示质量。
+
+对于用户 $u$ 的历史访问序列
+\begin{equation}
+H_u=\{(p_1,t_1),(p_2,t_2),\dots,(p_n,t_n)\},
+\end{equation}
+可进一步映射为语义 ID 序列
+\begin{equation}
+S_u=\{(SID(p_1),t_1),(SID(p_2),t_2),\dots,(SID(p_n),t_n)\}.
+\end{equation}
+
+在此基础上，本文将其组织为如下形式的输入提示：
+\begin{quote}
+\small
+\texttt{user\_<uid> visited: <SID> at [time], ..., visited <SID> at [time]. When [time] user\_<uid> is likely to visit:}
+\end{quote}
+
+与原始 GNPR-SID 的区别在于，此处的 \texttt{<SID>} 不再仅来自类别、区域与协同特征构建得到的离散表示，而是来源于地理增强表示 $x_p'$ 经 RQ-VAE 学习得到的地理增强 SID。也就是说，尽管生成式模型在输出端仍然只预测统一形式的 SID 序列，但其预测目标本身已经隐含了更多的地理空间信息。对于大语言模型而言，输入端看到的虽然仍是离散 token，但这些 token 的组织基础已经从“粗粒度语义离散化”转变为“语义--空间联合离散化”，因此模型学习到的下一 POI 预测规则也会相应包含更强的空间判别能力。
+
+在训练阶段，本文采用监督微调（Supervised Fine-Tuning, SFT）的方式对大语言模型进行训练，使其能够根据用户历史访问行为与时间上下文生成下一兴趣点的 SID。具体而言，以用户过去的 SID 访问序列及其时间信息作为输入，以真实下一次访问 POI 对应的 SID 作为监督目标，从而构建生成式训练样本。由于训练目标仍保持为统一形式的 SID 序列，本文方法无需额外扩展生成端词表结构，也不需要让模型同时预测额外的地理 token，因此能够在保持原有生成框架稳定性的同时，将地理信息的收益前移到离散表示学习阶段。
+
+在推理阶段，模型输出的 SID 再通过查表映射回具体的 POI，从而完成 Next POI Recommendation 任务。若多个候选 POI 在高层 SID 前缀上相同，则模型实际上会优先依据更细粒度的后续 token 进行区分；因此，地理增强 SID 的层次化结构不仅有助于表示语义相近性，也有助于生成式模型逐步缩小候选空间，提高预测的可解释性。
+
+由此可见，本文提出的方法并未改变 GNPR-SID 生成式推荐模块的整体建模方式，而是通过优化 Semantic ID Construction 阶段的输入表示，使后续生成式模型能够在不增加额外输出负担的前提下，利用更具空间判别能力的离散标识完成推荐任务。这也体现了本文方法的核心特征，即在保持原有生成框架稳定性的基础上，通过前端表示学习改进提升整体推荐性能。
 
 \section{本章小结}
 \label{sec:method_summary}
