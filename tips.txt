@@ -8,6 +8,7 @@
 
 xelatex main.tex && xelatex main.tex && latexmk -pdf -xelatex -bibtex -interaction=nonstopmode main.tex
 
+xelatex main.tex && latexmk -pdf -xelatex -bibtex -interaction=nonstopmode main.tex
 
 latexmk -xelatex -interaction=nonstopmode main.tex
 latexmk -pdf -xelatex -bibtex -interaction=nonstopmode main.tex
