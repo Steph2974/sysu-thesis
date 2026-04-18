@@ -17,13 +17,16 @@
 
 @inproceedings{vandenhirtz2026mscgrec,
   title     = {Multimodal Generative Recommendation for Fusing Semantic and Collaborative Signals},
-  author    = {Vandenhirtz, Moritz and Zong, Shiwei and Abdollahzadeh, Milad and Cheung, Jackie Chi Kit},
-  booktitle = {Proceedings of the 17th ACM International Conference on Web Search and Data Mining},
+  author    = {Vandenhirtz, Moritz and Hassani, Kaveh and Ghasemlou, Shervin and Shao, Shuai and Eghbalzadeh, Hamid and Peng, Fuchun and Liu, Jun and Iuzzolino, Michael Louis},
+  booktitle = {Proceedings of the 19th ACM International Conference on Web Search and Data Mining},
   series    = {WSDM},
-  pages     = {3918--3927},
+  pages     = {1128--1138},
   year      = {2026},
-  doi       = {10.1145/3694932.3719690},
-  url       = {https://openreview.net/forum?id=SdzEu8Cf2t}
+  doi       = {10.1145/3773966.3777947},
+  url       = {https://dl.acm.org/doi/10.1145/3773966.3777947},
+  eprint    = {2602.03713},
+  archivePrefix = {arXiv},
+  primaryClass = {cs.IR}
 }
 
 @inproceedings{rajput2023tiger,
@@ -242,24 +245,33 @@
   doi       = {10.1145/3539610.3549904}
 }
 
-@inproceedings{ji2023genrec,
-  title     = {{GenRec}: Large Language Model for Generative Recommendation},
+@inproceedings{ji2024genrec,
+  title     = {GenRec: Large Language Model for Generative Recommendation},
   author    = {Ji, Jianchao and Li, Zelong and Xu, Shuyuan and Hua, Wenyue and Ge, Yingqiang and Tan, Juntao and Zhang, Yongfeng},
-  booktitle = {Advances in Neural Information Processing Systems},
-  series    = {NeurIPS},
-  volume    = {36},
-  year      = {2023}
+  booktitle = {Advances in Information Retrieval},
+  series    = {Lecture Notes in Computer Science},
+  volume    = {14610},
+  pages     = {494--502},
+  year      = {2024},
+  doi       = {10.1007/978-3-031-56063-7_42}
 }
 
-@article{wang2024letter,
-  title     = {Learnable Item Tokenization for Generative Recommendation},
-  author    = {Wang, Wenjie and Bao, Honghui and Lin, Xinyu and Zhang, Jizhi and Li, Yongqi and Feng, Fuli and Ng, See-Kiong and Chua, Tat-Seng},
-  journal   = {IEEE Intelligent Systems},
-  volume    = {40},
-  number    = {2},
-  pages     = {62--70},
-  year      = {2025},
-  doi       = {10.1109/MIS.2024.3453210}
+@inproceedings{wang2024letter,
+author = {Wang, Wenjie and Bao, Honghui and Lin, Xinyu and Zhang, Jizhi and Li, Yongqi and Feng, Fuli and Ng, See-Kiong and Chua, Tat-Seng},
+title = {Learnable Item Tokenization for Generative Recommendation},
+year = {2024},
+isbn = {9798400704369},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3627673.3679569},
+doi = {10.1145/3627673.3679569},
+abstract = {Utilizing powerful Large Language Models (LLMs) for generative recommendation has attracted much attention. Nevertheless, a crucial challenge is transforming recommendation data into the language space of LLMs through effective item tokenization. Current approaches, such as ID, textual, and codebook-based identifiers, exhibit shortcomings in encoding semantic information, incorporating collaborative signals, or handling code assignment bias. To address these limitations, we propose LETTER (a LEarnable Tokenizer for generaTivE Recommendation), which integrates hierarchical semantics, collaborative signals, and code assignment diversity to satisfy the essential requirements of identifiers. LETTER incorporates Residual Quantized VAE for semantic regularization, a contrastive alignment loss for collaborative regularization, and a diversity loss to mitigate code assignment bias. We instantiate LETTER on two models and propose a ranking-guided generation loss to augment their ranking ability theoretically. Experiments on three datasets validate the superiority of LETTER, advancing the state-of-the-art in the field of LLM-based generative recommendation.},
+booktitle = {Proceedings of the 33rd ACM International Conference on Information and Knowledge Management},
+pages = {2400–2409},
+numpages = {10},
+keywords = {LLMs for recommendation, generative recommendation, item tokenization, learnable tokenizer},
+location = {Boise, ID, USA},
+series = {CIKM '24}
 }
 
 @inproceedings{tan2024idgenrec,
@@ -277,14 +289,21 @@
 }
 
 @inproceedings{hou2025longsid,
-  title     = {Generating Long Semantic IDs in Parallel for Recommendation},
-  author    = {Hou, Yupeng and Li, Jiacheng and Shin, Ashley and Jeon, Jinsung and Santhanam, Abhishek and Shao, Wei and Hassani, Kaveh and Yao, Ning and McAuley, Julian},
-  booktitle = {Proceedings of the 31st ACM SIGKDD Conference on Knowledge Discovery and Data Mining},
-  series    = {KDD},
-  year      = {2025},
-  pages     = {To appear},
-  doi       = {10.1145/3694745.3702907},
-  code      = {https://github.com/facebookresearch/RPG_KDD2025}
+author = {Hou, Yupeng and Li, Jiacheng and Shin, Ashley and Jeon, Jinsung and Santhanam, Abhishek and Shao, Wei and Hassani, Kaveh and Yao, Ning and McAuley, Julian},
+title = {Generating Long Semantic IDs in Parallel for Recommendation},
+year = {2025},
+isbn = {9798400714542},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3711896.3736979},
+doi = {10.1145/3711896.3736979},
+abstract = {Semantic ID-based recommendation models tokenize each item into a small number of discrete tokens that preserve specific semantics, leading to better performance, scalability, and memory efficiency. While recent models adopt a generative approach, they often suffer from inefficient inference due to the reliance on resource-intensive beam search and multiple forward passes through the neural sequence model. As a result, the length of semantic IDs is typically restricted (e.g., to just 4 tokens), limiting their expressiveness. To address these challenges, we propose RPG, a lightweight framework for semantic ID-based recommendation. The key idea is to produce unordered, long semantic IDs, allowing the model to predict all tokens in parallel. We train the model to predict each token independently using a multi-token prediction loss, directly integrating semantics into the learning objective. During inference, we construct a graph connecting similar semantic IDs and guide decoding to avoid generating invalid IDs. Experiments show that scaling up semantic ID length to 64 enables RPG to outperform generative baselines by an average of 12.6\% on the NDCG@10, while also improving inference efficiency. Code is available at: https://github.com/facebookresearch/RPG_KDD2025.},
+booktitle = {Proceedings of the 31st ACM SIGKDD Conference on Knowledge Discovery and Data Mining V.2},
+pages = {956–966},
+numpages = {11},
+keywords = {semantic id, sequential recommendation},
+location = {Toronto ON, Canada},
+series = {KDD '25}
 }
 
 @article{pan2024geoco,
