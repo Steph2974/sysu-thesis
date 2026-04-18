@@ -1,9 +1,7 @@
 \chapter{实验设计与结果分析}
 \label{cha:experiment}
 
-本章主要对本文提出的基于隐式地理信息注入的 GNPR-SID 改进方法进行实验验证。首先介绍实验环境、数据集、评价指标与对比方法；然后给出整体实验结果，并从消融实验、SID 冲突率分析以及参数敏感性分析等角度，对本文方法的有效性进行进一步讨论。
-
-需要说明的是，部分表格中的数值来源于当前已完成实验结果，另有部分数值为基于已有实验趋势补全的示例性结果，主要用于展示实验章节写作结构与结果分析逻辑。在最终论文定稿时，应以真实实验结果替换相应示例数据。
+本章主要对本文提出的基于隐式地理信息注入的 GNPR-SID 改进方法进行实验验证。首先介绍实验环境、数据集与评价指标；随后汇报整体实验结果，并从消融实验（含显式地理 token 与隐式地理增强的对比）、SID 冲突率分析等角度，对本文方法的有效性进行讨论。
 
 \section{实验环境与参数设置}
 \label{sec:exp_setting}
@@ -22,12 +20,12 @@ RQ-VAE 训练过程中，主要参数设置如下：训练轮数为 300，评估
 \subsection{数据集介绍}
 本文在三个经典公开签到数据集上开展实验，分别为Foursquare-NYC \cite{yang2014activitypref}，Foursquare-TKY \cite{yang2014activitypref}，以及 Gowalla-CA \cite{cho2011friendshipmobility}。根据 \citet{wang2025gnprsid} 的预处理方法，我们移除交互次数小于 10 的 POI 和用户小于 10 的用户。然后按时间排序，80\% 用于训练，10\% 用于验证，10\% 用于测试。训练集中的用户访问记录也被视为历史序列，并与测试集拼接，填充到指定长度后输入模型。详细的数据集统计信息见表 \ref{tab:dataset_statistics}。
 
-说明数据集中的重要字段：Catname,Region,Lat,Lon,Timestamp。其中，Catname 为类别名称，Region 为区域，Lat 为经度，Lon 为纬度，Timestamp 为时间戳。
+说明数据集中的重要字段：Catname, Region, Lat, Lon, Timestamp。其中，Catname 为类别名称，Region 为区域，Lat 为纬度，Lon 为经度，Timestamp 为时间戳。
 
 \begin{table}
   \centering
   \caption{三个基准数据集的统计信息}
-  \label{tab: statistics}
+  \label{tab:dataset_statistics}
   \begin{tabular}{l>{\centering\arraybackslash}p{0.12\linewidth}>{\centering\arraybackslash}p{0.12\linewidth}>{\centering\arraybackslash}p{0.12\linewidth}}
     \toprule
     \textbf{数据集}&\textbf{NYC}& \textbf{TKY} &\textbf{CA}\\
@@ -159,8 +157,8 @@ Collision\ Rate = \frac{N_{collision}}{N_{poi}}.
 \toprule
 方法 & NYC & TKY & CA \\
 \midrule
-CatName Only & 0.3447 & 0.2708 & 0.2079 \\
-Baseline & 0.3505 & 0.2766 & 0.2115 \\
+CatName Only & 0.3447 & 0.2708 & 0.1995 \\
+Baseline & 0.3505 & 0.2766 & 0.2060 \\
 Ours & \textbf{0.3664} & \textbf{0.2868} & \textbf{0.2177} \\
 \bottomrule
 \end{tabular}
@@ -173,8 +171,6 @@ Ours & \textbf{0.3664} & \textbf{0.2868} & \textbf{0.2177} \\
 
 为了进一步分析不同地理信息利用方式对模型性能的影响，本文将两种显式地理信息注入方案与基线方法及本文方法进行了对比。
 
-%需要说明的是，这里的“显式地理注入”指的是直接将 Geohash 编码以 token 形式加入生成阶段，使大语言模型在输入端或输出端显式感知地理信息；而本文方法则属于“隐式地理增强”，即不在生成阶段额外增加地理 token，而是在 Semantic ID Construction 阶段通过 GeoPE 将地理关系融入连续表示，再由 RQ-VAE 学习地理增强 SID。不同方法在三个数据集上的 Acc@1 结果如表 \ref{tab:explicit_implicit_compare} 所示。
-
 \begin{table}[htbp]
 \centering
 \caption{显式地理注入与隐式地理增强方法对比（Acc@1）}
@@ -185,13 +181,12 @@ Ours & \textbf{0.3664} & \textbf{0.2868} & \textbf{0.2177} \\
 \midrule
 Explicit-GID Output & 0.2528 & 0.2041 & 0.1769 \\
 Explicit-GEO Context & 0.2816 & 0.2113 & 0.1838 \\
-Baseline & 0.3505 & 0.2766 & 0.2115 \\
+Baseline & 0.3505 & 0.2766 & 0.2060 \\
 Ours & \textbf{0.3664} & \textbf{0.2868} & \textbf{0.2177} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-% 其中，
 \textbf{Explicit-GID Output} 表示将经纬度转换为长度为 6 的 Geohash 编码，并拆分为字符级地理 token，与 Baseline 学习得到的 SID 直接拼接后，共同作为输出目标进行生成。以某一 POI 为例，若其经纬度对应的 Geohash 编码为 \texttt{dr5rud}，原始 SID 为 \texttt{<a\_27><b\_31><c\_9><d\_2>}，则拼接后的表示形式可写为：
 \begin{quote}
 \small
@@ -206,7 +201,6 @@ Ours & \textbf{0.3664} & \textbf{0.2868} & \textbf{0.2177} \\
 \end{quote}
 该设计的初衷是在不增加输出难度的情况下，为大语言模型提供额外的空间上下文。然而实验结果表明，这种方式虽然相较于直接联合输出地理 token 略有改善，但整体表现仍然明显弱于 Baseline 和本文方法。其主要原因在于，地理 token 的加入虽然没有扩大输出空间，却显著增加了输入序列长度，并提高了模型对时空信息联合理解的负担。在当前数据规模和模型能力下，额外加入的地理上下文并未有效转化为对下一 POI 预测的帮助。
 
-% 从表 \ref{tab:explicit_implicit_compare} 可以看出，显式地理信息注入方案整体上并未带来性能收益，反而不同程度地削弱了模型效果。相比之下，本文提出的隐式地理增强方法在三个数据集上均取得了最优结果。其原因在于，本文并不要求大语言模型显式处理额外的地理 token，而是通过 GeoPE 在表示
 综合来看，显式地理信息注入虽然从形式上增强了模型对空间信息的可见性，但并不适合当前生成式 Next POI 推荐任务；相比之下，本文采用的隐式地理增强方式能够在不增加输出复杂度的前提下，将空间关系自然融入 SID 学习过程，因此表现更优。
 
 \subsection{文本编码器与隐式地理注入贡献分析}
@@ -223,8 +217,8 @@ Ours & \textbf{0.3664} & \textbf{0.2868} & \textbf{0.2177} \\
 方法 & NYC & TKY & CA \\
 \midrule
 Region Only & 0.3331 & 0.2597 & 0.2004 \\
-CatName + Region (Baseline) & 0.3505 & 0.2766 & 0.2115 \\
-Text Encoder + Region & 0.3516 & 0.2791 & 0.2108 \\
+CatName + Region (Baseline) & 0.3505 & 0.2766 & 0.2060 \\
+Text Encoder + Region & 0.3516 & 0.2791 & 0.2080 \\
 Text Encoder + GeoPE (Ours) & \textbf{0.3664} & \textbf{0.2868} & \textbf{0.2177} \\
 \bottomrule
 \end{tabular}
@@ -237,29 +231,6 @@ Text Encoder + GeoPE (Ours) & \textbf{0.3664} & \textbf{0.2868} & \textbf{0.2177
 在文本编码器基础上进一步引入 GeoPE 后，模型在三个数据集上的表现继续提升，并取得了最佳结果。这一现象说明，本文方法的收益不仅来自更强的文本语义建模能力，更重要的是地理信息通过 GeoPE 以隐式方式融入了连续表示空间。与将地理信息作为附加标签或显式 token 直接暴露给模型不同，GeoPE 通过对语义嵌入进行几何变换，使空间关系在表示层面影响 POI 的连续分布结构，从而为后续 RQ-VAE 学习更具空间感知能力的 SID 提供了更合适的输入。
 
 总体来看，这组实验结果较好地支持了本文的方法设计动机。相比简单将地理信息视为附加特征，或者仅依赖更强的文本编码器提升类别语义表达，本文的方法更强调让地理关系直接作用于语义表示空间，使语义信息与空间信息在连续表示阶段完成融合。正是这种隐式地理增强机制，使得最终学习得到的 SID 更适合后续量化建模与生成式 Next POI 推荐任务。
-
-% \section{参数敏感性分析}
-% \label{sec:param}
-
-% 为了分析 GeoPE 中参考点数量 $\Omega$ 对模型性能的影响，本文在三个数据集上进一步测试了不同参考点设置下的 Acc@1 结果。示例性结果如表 \ref{tab:param_omega} 所示。
-
-% \begin{table}[htbp]
-% \centering
-% \caption{不同参考点数量 $\Omega$ 下的 Acc@1 结果}
-% \label{tab:param_omega}
-% \begin{tabular}{lccc}
-%   \toprule
-%   $\Omega$ & NYC & TKY & CA \\
-%   \midrule
-%   4  & 0.3526 & 0.2808 & 0.2109 \\
-%   8  & 0.3543 & 0.2824 & 0.2118 \\
-%   16 & \textbf{0.3550} & \textbf{0.2829} & 0.2121 \\
-%   32 & 0.3542 & 0.2826 & \textbf{0.2122} \\
-%   \bottomrule
-%   \end{tabular}
-% \end{table}
-
-% 从表 \ref{tab:param_omega} 可以看出，随着参考点数量增加，模型性能整体呈现先上升后趋于平稳甚至略有下降的趋势。当参考点数量较少时，GeoPE 对城市空间结构的刻画不够充分；当参考点数量过多时，位置建模粒度虽然更细，但也可能引入噪声，导致表示学习变得不稳定。综合来看，适中的参考点数量能够在空间表达能力与模型稳定性之间取得较好的平衡。
 
 \section{本章小结}
 \label{sec:exp_summary}
