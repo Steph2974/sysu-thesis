@@ -1,0 +1,398 @@
+<svg width="1850" height="860" viewBox="0 0 1850 860" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .title { font: 700 34px "Times New Roman", "Noto Serif SC", serif; fill: #0f172a; }
+      .subtitle { font: 500 18px "Times New Roman", "Noto Serif SC", serif; fill: #475569; }
+      .step { font: 700 24px "Times New Roman", "Noto Serif SC", serif; fill: #0f172a; }
+      .label { font: 600 18px "Times New Roman", "Noto Serif SC", serif; fill: #1f2937; }
+      .body { font: 500 15px "Times New Roman", "Noto Serif SC", serif; fill: #334155; }
+      .math { font: italic 700 22px "Times New Roman", serif; fill: #111827; }
+      .small { font: 500 14px "Times New Roman", "Noto Serif SC", serif; fill: #64748b; }
+      .arrow { stroke: #1f2937; stroke-width: 2.6; fill: none; marker-end: url(#arrowMain); }
+      .assist { stroke: #64748b; stroke-width: 1.8; fill: none; marker-end: url(#arrowSoft); }
+    </style>
+
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#eef2f7"/>
+    </linearGradient>
+    <linearGradient id="boxA" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#eff6ff"/>
+    </linearGradient>
+    <linearGradient id="boxB" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f0fdf4"/>
+    </linearGradient>
+    <linearGradient id="boxC" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f5f3ff"/>
+    </linearGradient>
+
+    <marker id="arrowMain" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#1f2937"/>
+    </marker>
+    <marker id="arrowSoft" markerWidth="8" markerHeight="8" refX="6.4" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 Z" fill="#64748b"/>
+    </marker>
+
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0f172a" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="1850" height="860" fill="url(#bg)"/>
+
+  <text x="925" y="56" text-anchor="middle" class="title">GeoPE &#x6838;&#x5FC3;&#x6D41;&#x7A0B;&#x793A;&#x610F;&#x56FE;&#xFF08;&#x4E2D;&#x6587;&#x7248;&#xFF09;</text>
+  <text x="925" y="86" text-anchor="middle" class="subtitle">Text Encoder -&gt; Bearing Angle Calculation -&gt; Rotation-based GeoPE</text>
+
+  <g>
+    <rect x="80" y="140" rx="26" ry="26" width="410" height="430" fill="url(#boxA)" stroke="#93c5fd" stroke-width="2" filter="url(#shadow)"/>
+    <text x="285" y="186" text-anchor="middle" class="step">Text Encoder (all-MiniLM-L6-v2)</text>
+    <text x="285" y="214" text-anchor="middle" class="body">&#x57FA;&#x7840;&#x8BED;&#x4E49;&#x8868;&#x793A;&#x6784;&#x5EFA;</text>
+
+    <rect x="118" y="255" rx="14" ry="14" width="334" height="86" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.4"/>
+    <text x="285" y="288" text-anchor="middle" class="label">&#x8F93;&#x5165;&#xFF1A;POI &#x7C7B;&#x522B;&#x540D;&#x79F0; A_p</text>
+    <text x="285" y="314" text-anchor="middle" class="small">&#x4F8B;&#x5982;&#xFF1A;&#x9910;&#x996E; / &#x533B;&#x9662; / &#x5730;&#x94C1;&#x7AD9;</text>
+
+    <path d="M285 344 L285 386" class="assist"/>
+
+    <rect x="118" y="390" rx="14" ry="14" width="334" height="106" fill="#eff6ff" stroke="#60a5fa" stroke-width="1.4"/>
+    <text x="285" y="426" text-anchor="middle" class="label">&#x8F93;&#x51FA;&#xFF1A;&#x8BED;&#x4E49;&#x5411;&#x91CF; x_p</text>
+    <text x="285" y="452" text-anchor="middle" class="small">x_p = f_text(A_p)</text>
+    <text x="285" y="474" text-anchor="middle" class="small">&#x7EF4;&#x5EA6;&#x793A;&#x610F;&#xFF1A;D = 384</text>
+  </g>
+
+  <g>
+    <rect x="545" y="140" rx="26" ry="26" width="410" height="430" fill="url(#boxB)" stroke="#86efac" stroke-width="2" filter="url(#shadow)"/>
+    <text x="750" y="186" text-anchor="middle" class="step">Bearing Angle Calculation</text>
+    <text x="750" y="214" text-anchor="middle" class="body">&#x591A;&#x53C2;&#x8003;&#x70B9;&#x76F8;&#x5BF9;&#x65B9;&#x4F4D;&#x89D2;&#x8BA1;&#x7B97;</text>
+
+    <rect x="583" y="255" rx="14" ry="14" width="334" height="250" fill="#f0fdf4" stroke="#4ade80" stroke-width="1.4"/>
+    <circle cx="750" cy="360" r="12" fill="#111827"/>
+    <circle cx="750" cy="360" r="5" fill="#ffffff"/>
+    <text x="770" y="368" class="math">l_p</text>
+
+    <circle cx="665" cy="300" r="10" fill="#16a34a"/>
+    <circle cx="840" cy="300" r="10" fill="#16a34a"/>
+    <circle cx="690" cy="455" r="10" fill="#16a34a"/>
+    <text x="678" y="286" class="small">R1</text>
+    <text x="853" y="286" class="small">R2</text>
+    <text x="704" y="442" class="small">R3</text>
+
+    <line x1="750" y1="360" x2="672" y2="307" class="assist"/>
+    <line x1="750" y1="360" x2="833" y2="307" class="assist"/>
+    <line x1="750" y1="360" x2="697" y2="448" class="assist"/>
+
+    <text x="688" y="340" class="small">&#x3B8;_p,1</text>
+    <text x="806" y="340" class="small">&#x3B8;_p,2</text>
+    <text x="710" y="407" class="small">&#x3B8;_p,3</text>
+    <text x="750" y="538" text-anchor="middle" class="small">&#x398;_p = {&#x3B8;_p,1, &#x3B8;_p,2, ..., &#x3B8;_p,&#x3A9;}</text>
+  </g>
+
+  <g>
+    <rect x="1010" y="140" rx="26" ry="26" width="410" height="430" fill="url(#boxC)" stroke="#c4b5fd" stroke-width="2" filter="url(#shadow)"/>
+    <text x="1215" y="186" text-anchor="middle" class="step">Rotation-based GeoPE</text>
+    <text x="1215" y="214" text-anchor="middle" class="body">&#x6309;&#x65B9;&#x4F4D;&#x89D2;&#x5BF9;&#x8BED;&#x4E49;&#x5B50;&#x5757;&#x505A;&#x65CB;&#x8F6C;&#x6CE8;&#x5165;</text>
+
+    <rect x="1048" y="255" rx="14" ry="14" width="334" height="112" fill="#ede9fe" stroke="#8b5cf6" stroke-width="1.4"/>
+    <text x="1215" y="292" text-anchor="middle" class="label">x_p -&gt; [x_p^(1); x_p^(2); ...; x_p^(&#x3A9;)]</text>
+    <text x="1215" y="318" text-anchor="middle" class="small">&#x4E0E;&#x53C2;&#x8003;&#x70B9;&#x4E00;&#x4E00;&#x5BF9;&#x5E94;&#x7684;&#x5B50;&#x5411;&#x91CF;&#x5206;&#x5757;</text>
+    <text x="1215" y="340" text-anchor="middle" class="small">&#x6BCF;&#x4E2A;&#x5B50;&#x5757;&#x6309; &#x3B8;_p,&#x3C9; &#x8FDB;&#x884C;&#x4E8C;&#x7EF4;&#x65CB;&#x8F6C;</text>
+
+    <path d="M1215 368 L1215 398" class="assist"/>
+    <rect x="1062" y="404" rx="10" ry="10" width="92" height="44" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.4"/>
+    <text x="1108" y="432" text-anchor="middle" class="small">R(&#x3B8;_p,1)</text>
+    <rect x="1169" y="404" rx="10" ry="10" width="92" height="44" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.4"/>
+    <text x="1215" y="432" text-anchor="middle" class="small">R(&#x3B8;_p,2)</text>
+    <rect x="1276" y="404" rx="10" ry="10" width="92" height="44" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.4"/>
+    <text x="1322" y="432" text-anchor="middle" class="small">R(&#x3B8;_p,&#x3A9;)</text>
+  </g>
+
+  <path d="M495 355 C515 355, 525 355, 540 355" class="arrow"/>
+  <path d="M960 355 C980 355, 990 355, 1005 355" class="arrow"/>
+
+  <g>
+    <rect x="1500" y="300" rx="16" ry="16" width="300" height="92" fill="#dbeafe" stroke="#1d4ed8" stroke-width="2" filter="url(#shadow)"/>
+    <text x="1650" y="336" text-anchor="middle" class="label">&#x8F93;&#x51FA;&#x8868;&#x793A;</text>
+    <text x="1650" y="364" text-anchor="middle" class="math">geo_emb / x_p'</text>
+  </g>
+
+  <path d="M1425 350 C1450 350, 1470 348, 1495 346" class="arrow"/>
+
+  <g>
+    <rect x="1538" y="452" rx="14" ry="14" width="224" height="54" fill="#f8fafc" stroke="#334155" stroke-width="1.6"/>
+    <text x="1650" y="486" text-anchor="middle" class="label">RQ-VAE -&gt; SID</text>
+  </g>
+
+  <path d="M1650 395 L1650 446" class="arrow"/>
+</svg>
+<svg width="1500" height="860" viewBox="0 0 1500 860" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .title { font: 700 34px "Times New Roman", "Noto Serif SC", serif; fill: #0f172a; }
+      .subtitle { font: 500 18px "Times New Roman", "Noto Serif SC", serif; fill: #475569; }
+      .step { font: 700 24px "Times New Roman", "Noto Serif SC", serif; fill: #0f172a; }
+      .label { font: 600 18px "Times New Roman", "Noto Serif SC", serif; fill: #1f2937; }
+      .body { font: 500 15px "Times New Roman", "Noto Serif SC", serif; fill: #334155; }
+      .math { font: italic 700 22px "Times New Roman", serif; fill: #111827; }
+      .small { font: 500 14px "Times New Roman", "Noto Serif SC", serif; fill: #64748b; }
+      .arrow { stroke: #1f2937; stroke-width: 2.6; fill: none; marker-end: url(#arrowMain); }
+      .assist { stroke: #64748b; stroke-width: 1.8; fill: none; marker-end: url(#arrowSoft); }
+    </style>
+
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#eef2f7"/>
+    </linearGradient>
+    <linearGradient id="boxA" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#eff6ff"/>
+    </linearGradient>
+    <linearGradient id="boxB" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f0fdf4"/>
+    </linearGradient>
+    <linearGradient id="boxC" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f5f3ff"/>
+    </linearGradient>
+
+    <marker id="arrowMain" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#1f2937"/>
+    </marker>
+    <marker id="arrowSoft" markerWidth="8" markerHeight="8" refX="6.4" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 Z" fill="#64748b"/>
+    </marker>
+
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0f172a" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="1500" height="860" fill="url(#bg)"/>
+
+  <text x="750" y="56" text-anchor="middle" class="title">GeoPE &#x6838;&#x5FC3;&#x6D41;&#x7A0B;&#x793A;&#x610F;&#x56FE;&#xFF08;&#x4E2D;&#x6587;&#x7248;&#xFF09;</text>
+  <text x="750" y="86" text-anchor="middle" class="subtitle">Text Encoder -&gt; Bearing Angle Calculation -&gt; Rotation-based GeoPE</text>
+
+  <g>
+    <rect x="80" y="140" rx="26" ry="26" width="410" height="430" fill="url(#boxA)" stroke="#93c5fd" stroke-width="2" filter="url(#shadow)"/>
+    <text x="285" y="186" text-anchor="middle" class="step">Text Encoder (all-MiniLM-L6-v2)</text>
+    <text x="285" y="214" text-anchor="middle" class="body">&#x57FA;&#x7840;&#x8BED;&#x4E49;&#x8868;&#x793A;&#x6784;&#x5EFA;</text>
+
+    <rect x="118" y="255" rx="14" ry="14" width="334" height="86" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.4"/>
+    <text x="285" y="288" text-anchor="middle" class="label">&#x8F93;&#x5165;&#xFF1A;POI &#x7C7B;&#x522B;&#x540D;&#x79F0; A_p</text>
+    <text x="285" y="314" text-anchor="middle" class="small">&#x4F8B;&#x5982;&#xFF1A;&#x9910;&#x996E; / &#x533B;&#x9662; / &#x5730;&#x94C1;&#x7AD9;</text>
+
+    <path d="M285 344 L285 386" class="assist"/>
+
+    <rect x="118" y="390" rx="14" ry="14" width="334" height="106" fill="#eff6ff" stroke="#60a5fa" stroke-width="1.4"/>
+    <text x="285" y="426" text-anchor="middle" class="label">&#x8F93;&#x51FA;&#xFF1A;&#x8BED;&#x4E49;&#x5411;&#x91CF; x_p</text>
+    <text x="285" y="452" text-anchor="middle" class="small">x_p = f_text(A_p)</text>
+    <text x="285" y="474" text-anchor="middle" class="small">&#x7EF4;&#x5EA6;&#x793A;&#x610F;&#xFF1A;D = 384</text>
+  </g>
+
+  <g>
+    <rect x="545" y="140" rx="26" ry="26" width="410" height="430" fill="url(#boxB)" stroke="#86efac" stroke-width="2" filter="url(#shadow)"/>
+    <text x="750" y="186" text-anchor="middle" class="step">Bearing Angle Calculation</text>
+    <text x="750" y="214" text-anchor="middle" class="body">&#x591A;&#x53C2;&#x8003;&#x70B9;&#x76F8;&#x5BF9;&#x65B9;&#x4F4D;&#x89D2;&#x8BA1;&#x7B97;</text>
+
+    <rect x="583" y="255" rx="14" ry="14" width="334" height="250" fill="#f0fdf4" stroke="#4ade80" stroke-width="1.4"/>
+
+    <circle cx="750" cy="360" r="12" fill="#111827"/>
+    <circle cx="750" cy="360" r="5" fill="#ffffff"/>
+    <text x="770" y="368" class="math">l_p</text>
+
+    <circle cx="665" cy="300" r="10" fill="#16a34a"/>
+    <circle cx="840" cy="300" r="10" fill="#16a34a"/>
+    <circle cx="690" cy="455" r="10" fill="#16a34a"/>
+    <text x="678" y="286" class="small">R1</text>
+    <text x="853" y="286" class="small">R2</text>
+    <text x="704" y="442" class="small">R3</text>
+
+    <line x1="750" y1="360" x2="672" y2="307" class="assist"/>
+    <line x1="750" y1="360" x2="833" y2="307" class="assist"/>
+    <line x1="750" y1="360" x2="697" y2="448" class="assist"/>
+
+    <text x="688" y="340" class="small">&#x3B8;_p,1</text>
+    <text x="806" y="340" class="small">&#x3B8;_p,2</text>
+    <text x="710" y="407" class="small">&#x3B8;_p,3</text>
+
+    <text x="750" y="538" text-anchor="middle" class="small">&#x398;_p = {&#x3B8;_p,1, &#x3B8;_p,2, ..., &#x3B8;_p,&#x3A9;}</text>
+  </g>
+
+  <g>
+    <rect x="1010" y="140" rx="26" ry="26" width="410" height="430" fill="url(#boxC)" stroke="#c4b5fd" stroke-width="2" filter="url(#shadow)"/>
+    <text x="1215" y="186" text-anchor="middle" class="step">Rotation-based GeoPE</text>
+    <text x="1215" y="214" text-anchor="middle" class="body">&#x6309;&#x65B9;&#x4F4D;&#x89D2;&#x5BF9;&#x8BED;&#x4E49;&#x5B50;&#x5757;&#x505A;&#x65CB;&#x8F6C;&#x6CE8;&#x5165;</text>
+
+    <rect x="1048" y="255" rx="14" ry="14" width="334" height="112" fill="#ede9fe" stroke="#8b5cf6" stroke-width="1.4"/>
+    <text x="1215" y="292" text-anchor="middle" class="label">x_p -&gt; [x_p^(1); x_p^(2); ...; x_p^(&#x3A9;)]</text>
+    <text x="1215" y="318" text-anchor="middle" class="small">&#x4E0E;&#x53C2;&#x8003;&#x70B9;&#x4E00;&#x4E00;&#x5BF9;&#x5E94;&#x7684;&#x5B50;&#x5411;&#x91CF;&#x5206;&#x5757;</text>
+    <text x="1215" y="340" text-anchor="middle" class="small">&#x6BCF;&#x4E2A;&#x5B50;&#x5757;&#x6309; &#x3B8;_p,&#x3C9; &#x8FDB;&#x884C;&#x4E8C;&#x7EF4;&#x65CB;&#x8F6C;</text>
+
+    <path d="M1215 368 L1215 398" class="assist"/>
+
+    <rect x="1062" y="404" rx="10" ry="10" width="92" height="44" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.4"/>
+    <text x="1108" y="432" text-anchor="middle" class="small">R(&#x3B8;_p,1)</text>
+    <rect x="1169" y="404" rx="10" ry="10" width="92" height="44" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.4"/>
+    <text x="1215" y="432" text-anchor="middle" class="small">R(&#x3B8;_p,2)</text>
+    <rect x="1276" y="404" rx="10" ry="10" width="92" height="44" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.4"/>
+    <text x="1322" y="432" text-anchor="middle" class="small">R(&#x3B8;_p,&#x3A9;)</text>
+  </g>
+
+  <path d="M495 355 C515 355, 525 355, 540 355" class="arrow"/>
+  <path d="M960 355 C980 355, 990 355, 1005 355" class="arrow"/>
+
+  <g>
+    <rect x="1110" y="600" rx="16" ry="16" width="280" height="92" fill="#dbeafe" stroke="#1d4ed8" stroke-width="2" filter="url(#shadow)"/>
+    <text x="1250" y="636" text-anchor="middle" class="label">&#x8F93;&#x51FA;&#x8868;&#x793A;</text>
+    <text x="1250" y="664" text-anchor="middle" class="math">geo_emb / x_p'</text>
+  </g>
+
+  <path d="M1215 570 C1215 585, 1230 592, 1245 600" class="arrow"/>
+
+  <g>
+    <path d="M1250 695 L1250 735" class="arrow"/>
+    <rect x="1138" y="742" rx="14" ry="14" width="224" height="54" fill="#f8fafc" stroke="#334155" stroke-width="1.6"/>
+    <text x="1250" y="776" text-anchor="middle" class="label">RQ-VAE -&gt; SID</text>
+  </g>
+</svg>
+<svg width="1500" height="860" viewBox="0 0 1500 860" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .title { font: 700 34px "Times New Roman", "Noto Serif SC", serif; fill: #0f172a; }
+      .subtitle { font: 500 18px "Times New Roman", "Noto Serif SC", serif; fill: #475569; }
+      .step { font: 700 24px "Times New Roman", "Noto Serif SC", serif; fill: #0f172a; }
+      .label { font: 600 18px "Times New Roman", "Noto Serif SC", serif; fill: #1f2937; }
+      .body { font: 500 15px "Times New Roman", "Noto Serif SC", serif; fill: #334155; }
+      .math { font: italic 700 22px "Times New Roman", serif; fill: #111827; }
+      .small { font: 500 14px "Times New Roman", "Noto Serif SC", serif; fill: #64748b; }
+      .arrow { stroke: #1f2937; stroke-width: 2.6; fill: none; marker-end: url(#arrowMain); }
+      .assist { stroke: #64748b; stroke-width: 1.8; fill: none; marker-end: url(#arrowSoft); }
+    </style>
+
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#eef2f7"/>
+    </linearGradient>
+    <linearGradient id="boxA" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#eff6ff"/>
+    </linearGradient>
+    <linearGradient id="boxB" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f0fdf4"/>
+    </linearGradient>
+    <linearGradient id="boxC" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f5f3ff"/>
+    </linearGradient>
+
+    <marker id="arrowMain" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#1f2937"/>
+    </marker>
+    <marker id="arrowSoft" markerWidth="8" markerHeight="8" refX="6.4" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 Z" fill="#64748b"/>
+    </marker>
+
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0f172a" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="1500" height="860" fill="url(#bg)"/>
+
+  <text x="750" y="56" text-anchor="middle" class="title">GeoPE 8�A:�-�H	</text>
+  <text x="750" y="86" text-anchor="middle" class="subtitle">Text Encoder -> Bearing Angle Calculation -> Rotation-based GeoPE</text>
+
+  <!-- Left block -->
+  <g>
+    <rect x="80" y="140" rx="26" ry="26" width="410" height="430" fill="url(#boxA)" stroke="#93c5fd" stroke-width="2" filter="url(#shadow)"/>
+    <text x="285" y="186" text-anchor="middle" class="step">Text Encoder (all-MiniLM-L6-v2)</text>
+    <text x="285" y="214" text-anchor="middle" class="body">�@�Ih:��</text>
+
+    <rect x="118" y="255" rx="14" ry="14" width="334" height="86" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.4"/>
+    <text x="285" y="288" text-anchor="middle" class="label">�ePOI {+
+� A_p</text>
+    <text x="285" y="314" text-anchor="middle" class="small">��n / ;b / 0��</text>
+
+    <path d="M285 344 L285 386" class="assist"/>
+
+    <rect x="118" y="390" rx="14" ry="14" width="334" height="106" fill="#eff6ff" stroke="#60a5fa" stroke-width="1.4"/>
+    <text x="285" y="426" text-anchor="middle" class="label">���I� x_p</text>
+    <text x="285" y="452" text-anchor="middle" class="small">x_p = f_text(A_p)</text>
+    <text x="285" y="474" text-anchor="middle" class="small">��:D = 384</text>
+  </g>
+
+  <!-- Middle block -->
+  <g>
+    <rect x="545" y="140" rx="26" ry="26" width="410" height="430" fill="url(#boxB)" stroke="#86efac" stroke-width="2" filter="url(#shadow)"/>
+    <text x="750" y="186" text-anchor="middle" class="step">Bearing Angle Calculation</text>
+    <text x="750" y="214" text-anchor="middle" class="body">�����M��</text>
+
+    <rect x="583" y="255" rx="14" ry="14" width="334" height="250" fill="#f0fdf4" stroke="#4ade80" stroke-width="1.4"/>
+
+    <circle cx="750" cy="360" r="12" fill="#111827"/>
+    <circle cx="750" cy="360" r="5" fill="#ffffff"/>
+    <text x="770" y="368" class="math">l_p</text>
+
+    <circle cx="665" cy="300" r="10" fill="#16a34a"/>
+    <circle cx="840" cy="300" r="10" fill="#16a34a"/>
+    <circle cx="690" cy="455" r="10" fill="#16a34a"/>
+    <text x="678" y="286" class="small">R1</text>
+    <text x="853" y="286" class="small">R2</text>
+    <text x="704" y="442" class="small">R3</text>
+
+    <line x1="750" y1="360" x2="672" y2="307" class="assist"/>
+    <line x1="750" y1="360" x2="833" y2="307" class="assist"/>
+    <line x1="750" y1="360" x2="697" y2="448" class="assist"/>
+
+    <text x="688" y="340" class="small">�_p,1</text>
+    <text x="806" y="340" class="small">�_p,2</text>
+    <text x="710" y="407" class="small">�_p,3</text>
+
+    <text x="750" y="538" text-anchor="middle" class="small">�_p = {�_p,1, �_p,2, ..., �_p,�}</text>
+  </g>
+
+  <!-- Right block -->
+  <g>
+    <rect x="1010" y="140" rx="26" ry="26" width="410" height="430" fill="url(#boxC)" stroke="#c4b5fd" stroke-width="2" filter="url(#shadow)"/>
+    <text x="1215" y="186" text-anchor="middle" class="step">Rotation-based GeoPE</text>
+    <text x="1215" y="214" text-anchor="middle" class="body">	�M���IPWZ�l�e</text>
+
+    <rect x="1048" y="255" rx="14" ry="14" width="334" height="112" fill="#ede9fe" stroke="#8b5cf6" stroke-width="1.4"/>
+    <text x="1215" y="292" text-anchor="middle" class="label">x_p -> [x_p^(1); x_p^(2); ...; x_p^(�)]</text>
+    <text x="1215" y="318" text-anchor="middle" class="small">��  ���P�W</text>
+    <text x="1215" y="340" text-anchor="middle" class="small">�*PW	 �_p,� �L���l</text>
+
+    <path d="M1215 368 L1215 398" class="assist"/>
+
+    <rect x="1062" y="404" rx="10" ry="10" width="92" height="44" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.4"/>
+    <text x="1108" y="432" text-anchor="middle" class="small">R(�_p,1)</text>
+    <rect x="1169" y="404" rx="10" ry="10" width="92" height="44" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.4"/>
+    <text x="1215" y="432" text-anchor="middle" class="small">R(�_p,2)</text>
+    <rect x="1276" y="404" rx="10" ry="10" width="92" height="44" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.4"/>
+    <text x="1322" y="432" text-anchor="middle" class="small">R(�_p,�)</text>
+  </g>
+
+  <!-- Flow arrows between three blocks -->
+  <path d="M495 355 C515 355, 525 355, 540 355" class="arrow"/>
+  <path d="M960 355 C980 355, 990 355, 1005 355" class="arrow"/>
+
+  <!-- Output box at lower-right -->
+  <g>
+    <rect x="1110" y="600" rx="16" ry="16" width="280" height="92" fill="#dbeafe" stroke="#1d4ed8" stroke-width="2" filter="url(#shadow)"/>
+    <text x="1250" y="636" text-anchor="middle" class="label">��h:</text>
+    <text x="1250" y="664" text-anchor="middle" class="math">geo_emb / x_p'</text>
+  </g>
+
+  <path d="M1215 570 C1215 585, 1230 592, 1245 600" class="arrow"/>
+
+  <!-- Optional full path: RQ-VAE -> SID -->
+  <g>
+    <path d="M1250 695 L1250 735" class="arrow"/>
+    <rect x="1138" y="742" rx="14" ry="14" width="224" height="54" fill="#f8fafc" stroke="#334155" stroke-width="1.6"/>
+    <text x="1250" y="776" text-anchor="middle" class="label">RQ-VAE -> SID</text>
+  </g>
+</svg>
