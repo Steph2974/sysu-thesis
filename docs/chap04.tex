@@ -18,7 +18,6 @@
 
 \subsection{数据集介绍}
 
-% TODO：数据集划分这句有“可能被误读为信息泄漏”的风险
 本文在三个经典公开签到数据集上开展实验，分别为 Foursquare-NYC \cite{yang2014activitypref}、Foursquare-TKY \cite{yang2014activitypref} 以及 Gowalla-CA \cite{cho2011friendshipmobility}。参考 \citet{wang2025gnprsid} 的实验设置，本文首先对各数据集进行预处理：移除交互次数少于 10 的 POI，以及签到次数少于 10 的用户。随后，将签到记录按时间顺序排序，并按照 80\%、10\% 和 10\% 的比例划分为训练集、验证集和测试集。为保证训练与评测阶段的对象空间一致，验证集和测试集中未在训练集中出现的用户和 POI 将被移除。
 
 在评测样本构造阶段，本文先按用户对签到记录进行分组，并在每个用户内部按照时间顺序排列。对于验证集或测试集中的每个样本，最后一次访问的 POI 作为预测目标，其之前的访问记录作为输入序列。在生成式推荐阶段，模型仅使用目标时刻之前的历史访问记录作为上下文输入；这些历史记录主要来自训练集，并可与当前评测阶段中该用户已知的前序记录按时间顺序拼接，在填充到指定长度后输入模型。
@@ -26,7 +25,7 @@
 每条签到记录主要包含以下字段：\textit{Catname} 表示 POI 的类别名称，\textit{Region} 表示 POI 所属区域，\textit{Lat} 和 \textit{Lon} 分别表示该 POI 的纬度与经度，\textit{Timestamp} 表示用户发生签到行为的时间戳。其中，\textit{Catname} 和 \textit{Region} 主要用于刻画 POI 的语义属性与区域属性，\textit{Lat} 和 \textit{Lon} 用于构造地理增强表示，\textit{Timestamp} 用于恢复用户访问序列的时间顺序并完成数据划分。
 
 表 \ref{tab:dataset_statistics} 给出了三个数据集的统计信息。
-% TODO: “平均签到次数”和“平均签到频率”的解释
+
 \begin{table}
   \centering
   \caption{三个基准数据集的统计信息}
@@ -81,7 +80,7 @@ Ours & $\mathbf{0.3664 \pm 0.0023}$ & $\mathbf{0.2868 \pm 0.0015}$ & $\mathbf{0.
 \bottomrule
 \end{tabular}
 \end{table}
-
+% TODO:老师批注：这个效果还是比较明显的，可以考虑在摘要中提到在ACC@1指标方面最高提升达到5.67\%
 
 从表 \ref{tab:main_acc1} 可以看出，本文方法在 NYC、TKY 和 CA 三个数据集上均取得了优于 Baseline 的 Acc@1 结果，说明在 GNPR-SID 框架中引入地理信息增强表示能够在不同数据分布和城市场景下稳定提升下一兴趣点预测性能。具体来看，在 NYC 数据集上，Baseline 的 Acc@1 为 0.3505，本文方法提升至 0.3664，绝对提升为 0.0159，相对提升约为 4.54\%。在 TKY 数据集上，模型由 0.2766 提升至 0.2868，绝对提升为 0.0102，相对提升约为 3.70\%。在 CA 数据集上，本文方法取得了最明显的相对增益，由 0.2060 提升至 0.2177，绝对提升为 0.0117，相对提升约为 5.67\%。
 
